@@ -32,6 +32,7 @@ import {
   buildRanking,
   inMonth,
   lectureDate,
+  normalizeStudents,
   pickStudentId,
   topAbsent,
   topPresent,
@@ -96,7 +97,7 @@ function PainelPage() {
     queries: classes.map((c) => ({
       queryKey: ["students", String(c.id)],
       queryFn: async () =>
-        (await api.get<Student[]>(`/students/${c.id}`)).data,
+        normalizeStudents((await api.get(`/students/${c.id}`)).data),
       enabled: classes.length > 0,
     })),
   });
@@ -433,7 +434,6 @@ function PainelPage() {
           icon={<Droplets className="h-4 w-4" />}
           loading={loadingSacraments}
           rows={baptismPending}
-          badgeClass="bg-sky-100 text-sky-800 hover:bg-sky-100 dark:bg-sky-900/40 dark:text-sky-200"
           emptyText="Todos os alunos já foram batizados."
         />
         {(classFilter === "all" || classes.some((c) => c.type !== "Primeira Comunhão")) && (
@@ -447,7 +447,6 @@ function PainelPage() {
             icon={<Cookie className="h-4 w-4" />}
             loading={loadingSacraments}
             rows={communionPending}
-            badgeClass="bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-200"
             emptyText="Todos os alunos já fizeram a 1ª Comunhão."
           />
         )}
@@ -578,7 +577,7 @@ function RankRow({
 }: {
   name: string;
   subtitle: string;
-  badge: React.ReactNode;
+  badge?: React.ReactNode;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-md border bg-card p-3">
@@ -611,7 +610,6 @@ function SacramentCard({
   icon,
   loading,
   rows,
-  badgeClass,
   emptyText,
 }: {
   title: string;
@@ -619,7 +617,6 @@ function SacramentCard({
   icon: React.ReactNode;
   loading: boolean;
   rows: Array<{ id: number; name: string; phone?: string; className: string }>;
-  badgeClass: string;
   emptyText: string;
 }) {
   return (
@@ -647,7 +644,6 @@ function SacramentCard({
               subtitle={
                 s.phone ? `${s.className} · ${s.phone}` : s.className
               }
-              badge={<Badge className={badgeClass}>pendente</Badge>}
             />
           ))
         )}

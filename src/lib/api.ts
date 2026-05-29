@@ -72,4 +72,6 @@ export type Student = {
   cpf: string;
   ClassId: number;
   AddressId: number;
+  hasBaptism: boolean;
+  hasFirstCommunion: boolean;
 };

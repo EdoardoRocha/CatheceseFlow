@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { api, type Lecture, type Student } from "@/lib/api";
+import { normalizeStudents } from "@/lib/dashboard-aggregations";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -54,7 +55,8 @@ function RollCallPage() {
 
   const studentsQ = useQuery({
     queryKey: ["students", classId],
-    queryFn: async () => (await api.get<Student[]>(`/students/${classId}`)).data,
+    queryFn: async () =>
+      normalizeStudents((await api.get(`/students/${classId}`)).data),
   });
 
   const lecturesQ = useQuery({

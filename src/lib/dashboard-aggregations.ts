@@ -4,6 +4,23 @@ export type StudentRef = Student & { className?: string };
 
 export type AttendanceRow = Record<string, unknown>;
 
+export function normalizeStudent(raw: Record<string, unknown>): Student {
+  return {
+    id: Number(raw.id),
+    name: String(raw.name ?? ""),
+    phone: String(raw.phone ?? ""),
+    cpf: String(raw.cpf ?? ""),
+    ClassId: Number(raw.ClassId ?? raw.classId),
+    AddressId: Number(raw.AddressId ?? raw.addressId),
+    hasBaptism: !!(raw.hasBaptism ?? raw.has_baptism),
+    hasFirstCommunion: !!(raw.hasFirstCommunion ?? raw.has_first_communion),
+  };
+}
+
+export function normalizeStudents(rows: unknown[]): Student[] {
+  return rows.map((r) => normalizeStudent(r as Record<string, unknown>));
+}
+
 export function pickStudentId(r: AttendanceRow): number | null {
   const v = r.studentId ?? r.StudentId ?? r.student_id;
   return typeof v === "number" ? v : null;

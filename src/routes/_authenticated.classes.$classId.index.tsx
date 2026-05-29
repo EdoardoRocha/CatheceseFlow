@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { api, type Lecture, type Student } from "@/lib/api";
+import { normalizeStudents } from "@/lib/dashboard-aggregations";
 import { useAuth } from "@/lib/auth-context";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,7 +22,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { CalendarDays, Clock, MapPin, ChevronLeft, Users, Plus, Loader2, Phone } from "lucide-react";
+import { CalendarDays, Clock, MapPin, ChevronLeft, Users, Plus, Loader2, Phone, Check } from "lucide-react";
+
+const SACRAMENT_BADGE_CLASS =
+  "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200";
 
 export const Route = createFileRoute("/_authenticated/classes/$classId/")({
   head: () => ({ meta: [{ title: "Encontros — CatheceseFlow" }] }),
@@ -289,7 +293,8 @@ function NewLectureDialog({ classId }: { classId: string }) {
 function StudentsTab({ classId }: { classId: string }) {
   const studentsQ = useQuery({
     queryKey: ["students", classId],
-    queryFn: async () => (await api.get<Student[]>(`/students/${classId}`)).data,
+    queryFn: async () =>
+      normalizeStudents((await api.get(`/students/${classId}`)).data),
   });
 
   return (
@@ -319,7 +324,19 @@ function StudentsTab({ classId }: { classId: string }) {
                     <Phone className="h-3 w-3" /> {s.phone}
                   </p>
                 </div>
-                <Badge variant="outline" className="font-mono text-[10px]">CPF {s.cpf}</Badge>
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                  {!!s.hasBaptism && (
+                    <Badge variant="secondary" className={SACRAMENT_BADGE_CLASS}>
+                      <Check className="mr-1 h-3 w-3" /> Batismo
+                    </Badge>
+                  )}
+                  {!!s.hasFirstCommunion && (
+                    <Badge variant="secondary" className={SACRAMENT_BADGE_CLASS}>
+                      <Check className="mr-1 h-3 w-3" /> 1ª Comunhão
+                    </Badge>
+                  )}
+                  <Badge variant="outline" className="font-mono text-[10px]">CPF {s.cpf}</Badge>
+                </div>
               </CardContent>
             </Card>
           </li>
@@ -335,22 +352,26 @@ function NewStudentDialog({ classId }: { classId: string }) {
   const [form, setForm] = useState({
     name: "", phone: "", cpf: "",
     road: "", house_number: "", code: "", city: "", neighborhood: "",
+    hasBaptism: false, hasFirstCommunion: false
   });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((p) => ({ ...p, [k]: e.target.value }));
-  const reset = () => setForm({ name: "", phone: "", cpf: "", road: "", house_number: "", code: "", city: "", neighborhood: "" });
+  const reset = () => setForm({ name: "", phone: "", cpf: "", road: "", house_number: "", code: "", city: "", neighborhood: "", hasBaptism: false, hasFirstCommunion: false });
 
   const mutation = useMutation({
     mutationFn: async () => {
+      const { hasBaptism, hasFirstCommunion, house_number, ...rest } = form;
       return api.post("/students/create", {
-        ...form,
-        house_number: Number(form.house_number),
+        ...rest,
+        house_number: Number(house_number),
         classId: Number(classId),
+        has_baptism: hasBaptism,
+        has_first_communion: hasFirstCommunion,
       });
     },
     onSuccess: () => {
       toast.success("Aluno adicionado!");
-      qc.invalidateQueries({ queryKey: ["students", classId] });
+      qc.invalidateQueries({ queryKey: ["students"] });
       setOpen(false);
       reset();
     },
@@ -359,8 +380,13 @@ function NewStudentDialog({ classId }: { classId: string }) {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (Object.values(form).some((v) => !v)) {
-      toast.error("Preencha todos os campos.");
+    const REQUIRED_TEXT_FIELDS = [
+      "name", "phone", "cpf",
+      "road", "house_number", "code", "city", "neighborhood",
+    ] as const;
+    const missing = REQUIRED_TEXT_FIELDS.filter((k) => !String(form[k]).trim());
+    if (missing.length > 0) {
+      toast.error("Preencha todos os campos de texto.");
       return;
     }
     mutation.mutate();
@@ -390,6 +416,26 @@ function NewStudentDialog({ classId }: { classId: string }) {
               <Label>CPF</Label>
               <Input className="h-11" value={form.cpf} onChange={set("cpf")} />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex cursor-pointer items-center gap-2 rounded-md border p-3 hover:bg-accent">
+              <Checkbox
+                checked={form.hasBaptism}
+                onCheckedChange={(checked) =>
+                  setForm((p) => ({ ...p, hasBaptism: !!checked }))
+                }
+              />
+              <span className="text-sm">Tem Batismo</span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 rounded-md border p-3 hover:bg-accent">
+              <Checkbox
+                checked={form.hasFirstCommunion}
+                onCheckedChange={(checked) =>
+                  setForm((p) => ({ ...p, hasFirstCommunion: !!checked }))
+                }
+              />
+              <span className="text-sm">Tem Primeira Comunhão</span>
+            </label>
           </div>
           <div className="space-y-2">
             <Label>Rua</Label>
