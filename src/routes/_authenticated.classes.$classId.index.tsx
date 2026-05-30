@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link, useParams } from "react-router-dom";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -27,11 +28,6 @@ import { CalendarDays, Clock, MapPin, ChevronLeft, Users, Plus, Loader2, Phone, 
 const SACRAMENT_BADGE_CLASS =
   "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200";
 
-export const Route = createFileRoute("/_authenticated/classes/$classId/")({
-  head: () => ({ meta: [{ title: "Encontros — CatheceseFlow" }] }),
-  component: ClassDetail,
-});
-
 function todayIso() {
   const d = new Date();
   const y = d.getFullYear();
@@ -53,8 +49,9 @@ function extractMessage(err: unknown): string | undefined {
   return (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
 }
 
-function ClassDetail() {
-  const { classId } = Route.useParams();
+export function ClassDetailPage() {
+  const { classId } = useParams<{ classId: string }>();
+  usePageTitle("Encontros — CatheceseFlow");
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["lectures", classId],
@@ -519,10 +516,7 @@ function Section({
                 </div>
               )}
               <Button asChild className="h-11 w-full">
-                <Link
-                  to="/classes/$classId/lectures/$lectureId"
-                  params={{ classId, lectureId: String(l.id) }}
-                >
+                <Link to={`/classes/${classId}/lectures/${l.id}`}>
                   Fazer chamada
                 </Link>
               </Button>

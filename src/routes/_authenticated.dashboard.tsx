@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -26,11 +27,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Clock, MapPin, ChevronRight, Plus, Loader2 } from "lucide-react";
-
-export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Minhas turmas — CatheceseFlow" }] }),
-  component: Dashboard,
-});
 
 function formatTime(t: string) {
   return t?.slice(0, 5) ?? t;
@@ -137,7 +133,8 @@ function NewClassDialog() {
   );
 }
 
-function Dashboard() {
+export function DashboardPage() {
+  usePageTitle("Minhas turmas — CatheceseFlow");
   const { data, isLoading, isError } = useQuery({
     queryKey: ["classes", "my-parish"],
     queryFn: async () => {
@@ -184,8 +181,7 @@ function Dashboard() {
         {data?.map((c) => (
           <Link
             key={c.id}
-            to="/classes/$classId"
-            params={{ classId: String(c.id) }}
+            to={`/classes/${c.id}`}
             className="block"
           >
             <Card className="transition-colors hover:bg-accent/50">

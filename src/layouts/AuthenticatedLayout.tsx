@@ -1,22 +1,25 @@
-import { createFileRoute, Navigate, Outlet, Link, useNavigate } from "@tanstack/react-router";
+import { Navigate, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { LogOut } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/_authenticated")({
-  component: AuthenticatedLayout,
-});
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  cn(
+    "rounded-md px-2 py-1 text-muted-foreground hover:bg-accent hover:text-foreground",
+    isActive && "bg-accent text-foreground",
+  );
 
-function AuthenticatedLayout() {
+export function AuthenticatedLayout() {
   const { isReady, token, user, logout } = useAuth();
   const navigate = useNavigate();
 
   if (!isReady) return null;
-  if (!token) return <Navigate to="/login" />;
+  if (!token) return <Navigate to="/login" replace />;
 
   const handleLogout = () => {
     logout();
-    navigate({ to: "/login" });
+    navigate("/login");
   };
 
   return (
@@ -24,24 +27,16 @@ function AuthenticatedLayout() {
       <header className="sticky top-0 z-10 border-b bg-background">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-4">
-            <Link to="/dashboard" className="font-semibold tracking-tight">
+            <NavLink to="/dashboard" className="font-semibold tracking-tight">
               CatheceseFlow
-            </Link>
+            </NavLink>
             <nav className="flex items-center gap-1 text-sm">
-              <Link
-                to="/painel"
-                className="rounded-md px-2 py-1 text-muted-foreground hover:bg-accent hover:text-foreground [&.active]:bg-accent [&.active]:text-foreground"
-                activeOptions={{ exact: true }}
-              >
+              <NavLink to="/painel" end className={navLinkClass}>
                 Painel
-              </Link>
-              <Link
-                to="/dashboard"
-                className="rounded-md px-2 py-1 text-muted-foreground hover:bg-accent hover:text-foreground [&.active]:bg-accent [&.active]:text-foreground"
-                activeOptions={{ exact: true }}
-              >
+              </NavLink>
+              <NavLink to="/dashboard" end className={navLinkClass}>
                 Turmas
-              </Link>
+              </NavLink>
             </nav>
           </div>
           <div className="flex items-center gap-3">

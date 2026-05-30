@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link, useParams } from "react-router-dom";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -18,11 +19,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ChevronLeft, Check, X, Loader2, RotateCcw } from "lucide-react";
-
-export const Route = createFileRoute("/_authenticated/classes/$classId/lectures/$lectureId")({
-  head: () => ({ meta: [{ title: "Chamada — CatheceseFlow" }] }),
-  component: RollCallPage,
-});
 
 type LocalStatus = "present" | "absent";
 type MarkMap = Record<number, { status: LocalStatus; reason?: string }>;
@@ -46,8 +42,9 @@ function formatDateBR(iso: string) {
   return `${d}/${m}/${y}`;
 }
 
-function RollCallPage() {
-  const { classId, lectureId } = Route.useParams();
+export function RollCallPage() {
+  const { classId, lectureId } = useParams<{ classId: string; lectureId: string }>();
+  usePageTitle("Chamada — CatheceseFlow");
   const [absenceFor, setAbsenceFor] = useState<Student | null>(null);
   const [reasonDraft, setReasonDraft] = useState("");
   const [pendingId, setPendingId] = useState<number | null>(null);
@@ -206,7 +203,7 @@ function RollCallPage() {
     <div className="space-y-4 pb-28">
       <div>
         <Button asChild variant="ghost" size="sm" className="-ml-2 mb-1">
-          <Link to="/classes/$classId" params={{ classId }}>
+          <Link to={`/classes/${classId}`}>
             <ChevronLeft className="h-4 w-4" />
             Encontros
           </Link>

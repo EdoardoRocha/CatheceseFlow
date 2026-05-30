@@ -1,4 +1,5 @@
-import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
+import { Navigate, useNavigate } from "react-router-dom";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -16,11 +17,6 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 
-export const Route = createFileRoute("/login")({
-  head: () => ({ meta: [{ title: "Entrar — CatheceseFlow" }] }),
-  component: LoginPage,
-});
-
 function getErrMsg(err: unknown, fallback: string) {
   return (
     (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data
@@ -28,11 +24,12 @@ function getErrMsg(err: unknown, fallback: string) {
   );
 }
 
-function LoginPage() {
+export function LoginPage() {
+  usePageTitle("Entrar — CatheceseFlow");
   const { login, token, isReady } = useAuth();
   const navigate = useNavigate();
 
-  if (isReady && token) return <Navigate to="/dashboard" />;
+  if (isReady && token) return <Navigate to="/dashboard" replace />;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-12">
@@ -51,7 +48,7 @@ function LoginPage() {
               <LoginForm
                 onSuccess={() => {
                   toast.success("Bem-vindo!");
-                  navigate({ to: "/dashboard" });
+                  navigate("/dashboard");
                 }}
                 login={login}
               />

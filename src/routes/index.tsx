@@ -1,18 +1,10 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth-context";
+import { usePageTitle } from "@/hooks/use-page-title";
 
-export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "CatheceseFlow" },
-      { name: "description", content: "Gestão de turmas de catequese da sua paróquia." },
-    ],
-  }),
-  component: Index,
-});
-
-function Index() {
+export function IndexPage() {
+  usePageTitle("CatheceseFlow");
   const { isReady, token } = useAuth();
   if (!isReady) return null;
-  return <Navigate to={token ? "/dashboard" : "/login"} />;
+  return <Navigate to={token ? "/dashboard" : "/login"} replace />;
 }

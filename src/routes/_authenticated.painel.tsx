@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { api, type ClassItem, type Lecture, type Student } from "@/lib/api";
@@ -49,11 +50,6 @@ import {
   Cookie,
 } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/painel")({
-  head: () => ({ meta: [{ title: "Painel — CatheceseFlow" }] }),
-  component: PainelPage,
-});
-
 function monthKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
@@ -65,7 +61,8 @@ function formatDateBR(d: Date) {
   return d.toLocaleDateString("pt-BR");
 }
 
-function PainelPage() {
+export function PainelPage() {
+  usePageTitle("Painel — CatheceseFlow");
   const today = new Date();
   const [monthValue, setMonthValue] = useState(monthKey(today));
   const [classFilter, setClassFilter] = useState<string>("all");
@@ -403,11 +400,7 @@ function PainelPage() {
             upcoming.map((l) => (
               <Link
                 key={l.id}
-                to="/classes/$classId/lectures/$lectureId"
-                params={{
-                  classId: String(l.classId),
-                  lectureId: String(l.id),
-                }}
+                to={`/classes/${l.classId}/lectures/${l.id}`}
                 className="flex items-center justify-between rounded-md border bg-card p-3 transition-colors hover:bg-accent/50"
               >
                 <div className="min-w-0">
