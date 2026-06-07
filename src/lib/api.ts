@@ -70,6 +70,9 @@ export type Student = {
   name: string;
   phone: string;
   cpf: string;
+  birthDate?: string | null;
+  fatherName?: string | null;
+  motherName?: string | null;
   ClassId: number;
   AddressId: number;
   hasBaptism: boolean;

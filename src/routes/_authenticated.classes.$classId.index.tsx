@@ -317,9 +317,11 @@ function StudentsTab({ classId }: { classId: string }) {
               <CardContent className="flex items-center justify-between gap-3 p-3">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{s.name}</p>
-                  <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                    <Phone className="h-3 w-3" /> {s.phone}
-                  </p>
+                  {s.phone && (
+                    <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                      <Phone className="h-3 w-3" /> {s.phone}
+                    </p>
+                  )}
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
                   {!!s.hasBaptism && (
@@ -332,7 +334,11 @@ function StudentsTab({ classId }: { classId: string }) {
                       <Check className="mr-1 h-3 w-3" /> 1ª Comunhão
                     </Badge>
                   )}
-                  <Badge variant="outline" className="font-mono text-[10px]">CPF {s.cpf}</Badge>
+                  {s.cpf && (
+                    <Badge variant="outline" className="font-mono text-[10px]">
+                      CPF {s.cpf}
+                    </Badge>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -347,20 +353,54 @@ function NewStudentDialog({ classId }: { classId: string }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
-    name: "", phone: "", cpf: "",
-    road: "", house_number: "", code: "", city: "", neighborhood: "",
-    hasBaptism: false, hasFirstCommunion: false
+    name: "",
+    birth_date: "",
+    father_name: "",
+    mother_name: "",
+    phone: "",
+    cpf: "",
+    road: "",
+    house_number: "",
+    code: "",
+    city: "",
+    neighborhood: "",
+    hasBaptism: false,
+    hasFirstCommunion: false,
   });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((p) => ({ ...p, [k]: e.target.value }));
-  const reset = () => setForm({ name: "", phone: "", cpf: "", road: "", house_number: "", code: "", city: "", neighborhood: "", hasBaptism: false, hasFirstCommunion: false });
+  const reset = () =>
+    setForm({
+      name: "",
+      birth_date: "",
+      father_name: "",
+      mother_name: "",
+      phone: "",
+      cpf: "",
+      road: "",
+      house_number: "",
+      code: "",
+      city: "",
+      neighborhood: "",
+      hasBaptism: false,
+      hasFirstCommunion: false,
+    });
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const { hasBaptism, hasFirstCommunion, house_number, ...rest } = form;
+      const { hasBaptism, hasFirstCommunion, house_number } = form;
       return api.post("/students/create", {
-        ...rest,
-        house_number: Number(house_number),
+        name: form.name.trim(),
+        phone: form.phone.trim() || null,
+        cpf: form.cpf.trim() || null,
+        birth_date: form.birth_date || null,
+        father_name: form.father_name.trim() || null,
+        mother_name: form.mother_name.trim() || null,
+        road: form.road.trim() || null,
+        house_number: house_number.trim() ? Number(house_number) : null,
+        code: form.code.trim() || null,
+        city: form.city.trim() || null,
+        neighborhood: form.neighborhood.trim() || null,
         classId: Number(classId),
         has_baptism: hasBaptism,
         has_first_communion: hasFirstCommunion,
@@ -377,13 +417,8 @@ function NewStudentDialog({ classId }: { classId: string }) {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const REQUIRED_TEXT_FIELDS = [
-      "name", "phone", "cpf",
-      "road", "house_number", "code", "city", "neighborhood",
-    ] as const;
-    const missing = REQUIRED_TEXT_FIELDS.filter((k) => !String(form[k]).trim());
-    if (missing.length > 0) {
-      toast.error("Preencha todos os campos de texto.");
+    if (!form.name.trim()) {
+      toast.error("Informe o nome do aluno.");
       return;
     }
     mutation.mutate();
@@ -401,8 +436,27 @@ function NewStudentDialog({ classId }: { classId: string }) {
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
           <div className="space-y-2">
-            <Label>Nome</Label>
-            <Input className="h-11" value={form.name} onChange={set("name")} />
+            <Label>Nome *</Label>
+            <Input className="h-11" value={form.name} onChange={set("name")} required />
+          </div>
+          <div className="space-y-2">
+            <Label>Data de nascimento</Label>
+            <Input
+              type="date"
+              className="h-11"
+              value={form.birth_date}
+              onChange={set("birth_date")}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Nome do pai</Label>
+              <Input className="h-11" value={form.father_name} onChange={set("father_name")} />
+            </div>
+            <div className="space-y-2">
+              <Label>Nome da mãe</Label>
+              <Input className="h-11" value={form.mother_name} onChange={set("mother_name")} />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">

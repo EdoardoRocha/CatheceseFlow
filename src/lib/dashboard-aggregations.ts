@@ -5,11 +5,18 @@ export type StudentRef = Student & { className?: string };
 export type AttendanceRow = Record<string, unknown>;
 
 export function normalizeStudent(raw: Record<string, unknown>): Student {
+  const birthRaw = raw.birth_date ?? raw.birthDate;
   return {
     id: Number(raw.id),
     name: String(raw.name ?? ""),
     phone: String(raw.phone ?? ""),
     cpf: String(raw.cpf ?? ""),
+    birthDate:
+      birthRaw == null || birthRaw === ""
+        ? null
+        : String(birthRaw).split("T")[0],
+    fatherName: String(raw.father_name ?? raw.fatherName ?? ""),
+    motherName: String(raw.mother_name ?? raw.motherName ?? ""),
     ClassId: Number(raw.ClassId ?? raw.classId),
     AddressId: Number(raw.AddressId ?? raw.addressId),
     hasBaptism: !!(raw.hasBaptism ?? raw.has_baptism),
