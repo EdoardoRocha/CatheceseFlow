@@ -2,7 +2,14 @@ import { Link } from "react-router-dom";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { api, type ClassItem, type Lecture, type Student } from "@/lib/api";
+import {
+  api,
+  formatStudentPhone,
+  type ClassItem,
+  type Lecture,
+  type Student,
+  type StudentPhone,
+} from "@/lib/api";
 import {
   Card,
   CardContent,
@@ -141,7 +148,13 @@ export function PainelPage() {
   });
 
   // Sacraments report per visible class
-  type SacramentStudent = { id: number; name: string; phone?: string };
+  type SacramentStudent = {
+    id: number;
+    name: string;
+    phones?: StudentPhone[];
+    phone?: string;
+    phoneSummary?: string;
+  };
   type SacramentsReport = {
     baptismPending?: { total: number; students: SacramentStudent[] };
     firstCommunionPending?: { total: number; students: SacramentStudent[] };
@@ -609,7 +622,14 @@ function SacramentCard({
   description: string;
   icon: React.ReactNode;
   loading: boolean;
-  rows: Array<{ id: number; name: string; phone?: string; className: string }>;
+  rows: Array<{
+    id: number;
+    name: string;
+    phones?: StudentPhone[];
+    phone?: string;
+    phoneSummary?: string;
+    className: string;
+  }>;
   emptyText: string;
 }) {
   return (
@@ -634,9 +654,14 @@ function SacramentCard({
             <RankRow
               key={s.id}
               name={s.name}
-              subtitle={
-                s.phone ? `${s.className} · ${s.phone}` : s.className
-              }
+              subtitle={(() => {
+                const phoneText =
+                  s.phoneSummary ??
+                  (s.phones?.length
+                    ? s.phones.map(formatStudentPhone).join(" · ")
+                    : s.phone);
+                return phoneText ? `${s.className} · ${phoneText}` : s.className;
+              })()}
             />
           ))
         )}

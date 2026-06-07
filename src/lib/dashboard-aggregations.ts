@@ -1,15 +1,47 @@
-import type { Lecture, Student } from "@/lib/api";
+import type { Lecture, Student, StudentPhone } from "@/lib/api";
 
 export type StudentRef = Student & { className?: string };
 
 export type AttendanceRow = Record<string, unknown>;
 
+function normalizePhones(raw: Record<string, unknown>): StudentPhone[] {
+  const rawPhones = raw.phones;
+  if (Array.isArray(rawPhones) && rawPhones.length > 0) {
+    return rawPhones
+      .map((entry) => {
+        const item = entry as Record<string, unknown>;
+        const number = String(item.number ?? item.phone ?? "").trim();
+        if (!number) return null;
+        const labelRaw = item.label;
+        const label =
+          labelRaw == null || String(labelRaw).trim() === ""
+            ? null
+            : String(labelRaw).trim();
+        return {
+          id: item.id != null ? Number(item.id) : undefined,
+          number,
+          label,
+        };
+      })
+      .filter((entry): entry is StudentPhone => entry != null);
+  }
+
+  const legacyPhone = String(raw.phone ?? "").trim();
+  if (legacyPhone) {
+    return [{ number: legacyPhone, label: null }];
+  }
+
+  return [];
+}
+
 export function normalizeStudent(raw: Record<string, unknown>): Student {
   const birthRaw = raw.birth_date ?? raw.birthDate;
+  const phones = normalizePhones(raw);
   return {
     id: Number(raw.id),
     name: String(raw.name ?? ""),
-    phone: String(raw.phone ?? ""),
+    phones,
+    phone: phones[0]?.number,
     cpf: String(raw.cpf ?? ""),
     birthDate:
       birthRaw == null || birthRaw === ""

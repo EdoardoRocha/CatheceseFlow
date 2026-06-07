@@ -65,10 +65,17 @@ export type Lecture = {
   Users?: Array<{ id: number; name: string; role: string }>;
 };
 
+export type StudentPhone = {
+  id?: number;
+  number: string;
+  label?: string | null;
+};
+
 export type Student = {
   id: number;
   name: string;
-  phone: string;
+  phones: StudentPhone[];
+  phone?: string;
   cpf: string;
   birthDate?: string | null;
   fatherName?: string | null;
@@ -78,3 +85,7 @@ export type Student = {
   hasBaptism: boolean;
   hasFirstCommunion: boolean;
 };
+
+export function formatStudentPhone(phone: StudentPhone): string {
+  return phone.label ? `${phone.label}: ${phone.number}` : phone.number;
+}

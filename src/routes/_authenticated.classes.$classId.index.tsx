@@ -3,7 +3,7 @@ import { usePageTitle } from "@/hooks/use-page-title";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { api, type Lecture, type Student } from "@/lib/api";
+import { api, formatStudentPhone, type Lecture, type Student } from "@/lib/api";
 import { normalizeStudents } from "@/lib/dashboard-aggregations";
 import { useAuth } from "@/lib/auth-context";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -23,10 +23,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { CalendarDays, Clock, MapPin, ChevronLeft, Users, Plus, Loader2, Phone, Check } from "lucide-react";
+import { CalendarDays, Clock, MapPin, ChevronLeft, Users, Plus, Loader2, Phone, Check, Trash2 } from "lucide-react";
 
 const SACRAMENT_BADGE_CLASS =
   "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200";
+
+const MAX_STUDENT_PHONES = 5;
+
+const EMPTY_PHONE_ROW = { number: "", label: "" };
 
 function todayIso() {
   const d = new Date();
@@ -317,11 +321,15 @@ function StudentsTab({ classId }: { classId: string }) {
               <CardContent className="flex items-center justify-between gap-3 p-3">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{s.name}</p>
-                  {s.phone && (
-                    <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                      <Phone className="h-3 w-3" /> {s.phone}
-                    </p>
-                  )}
+                  {s.phones.length > 0 &&
+                    s.phones.map((p, index) => (
+                      <p
+                        key={`${s.id}-phone-${index}`}
+                        className="flex items-center gap-1 truncate text-xs text-muted-foreground"
+                      >
+                        <Phone className="h-3 w-3 shrink-0" /> {formatStudentPhone(p)}
+                      </p>
+                    ))}
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
                   {!!s.hasBaptism && (
@@ -357,7 +365,7 @@ function NewStudentDialog({ classId }: { classId: string }) {
     birth_date: "",
     father_name: "",
     mother_name: "",
-    phone: "",
+    phones: [{ ...EMPTY_PHONE_ROW }],
     cpf: "",
     road: "",
     house_number: "",
@@ -369,13 +377,38 @@ function NewStudentDialog({ classId }: { classId: string }) {
   });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((p) => ({ ...p, [k]: e.target.value }));
+  const updatePhone = (
+    index: number,
+    field: "number" | "label",
+    value: string,
+  ) =>
+    setForm((prev) => ({
+      ...prev,
+      phones: prev.phones.map((phone, i) =>
+        i === index ? { ...phone, [field]: value } : phone,
+      ),
+    }));
+  const addPhone = () =>
+    setForm((prev) =>
+      prev.phones.length >= MAX_STUDENT_PHONES
+        ? prev
+        : { ...prev, phones: [...prev.phones, { ...EMPTY_PHONE_ROW }] },
+    );
+  const removePhone = (index: number) =>
+    setForm((prev) => ({
+      ...prev,
+      phones:
+        prev.phones.length === 1
+          ? [{ ...EMPTY_PHONE_ROW }]
+          : prev.phones.filter((_, i) => i !== index),
+    }));
   const reset = () =>
     setForm({
       name: "",
       birth_date: "",
       father_name: "",
       mother_name: "",
-      phone: "",
+      phones: [{ ...EMPTY_PHONE_ROW }],
       cpf: "",
       road: "",
       house_number: "",
@@ -389,9 +422,16 @@ function NewStudentDialog({ classId }: { classId: string }) {
   const mutation = useMutation({
     mutationFn: async () => {
       const { hasBaptism, hasFirstCommunion, house_number } = form;
+      const phones = form.phones
+        .map((entry) => ({
+          number: entry.number.trim(),
+          label: entry.label.trim() || null,
+        }))
+        .filter((entry) => entry.number);
+
       return api.post("/students/create", {
         name: form.name.trim(),
-        phone: form.phone.trim() || null,
+        phones,
         cpf: form.cpf.trim() || null,
         birth_date: form.birth_date || null,
         father_name: form.father_name.trim() || null,
@@ -458,15 +498,52 @@ function NewStudentDialog({ classId }: { classId: string }) {
               <Input className="h-11" value={form.mother_name} onChange={set("mother_name")} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Telefone</Label>
-              <Input className="h-11" value={form.phone} onChange={set("phone")} />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Telefones</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addPhone}
+                disabled={form.phones.length >= MAX_STUDENT_PHONES}
+              >
+                <Plus className="h-4 w-4" /> Adicionar telefone
+              </Button>
             </div>
             <div className="space-y-2">
-              <Label>CPF</Label>
-              <Input className="h-11" value={form.cpf} onChange={set("cpf")} />
+              {form.phones.map((phone, index) => (
+                <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                  <Input
+                    className="h-11"
+                    placeholder="Número"
+                    value={phone.number}
+                    onChange={(e) => updatePhone(index, "number", e.target.value)}
+                  />
+                  <Input
+                    className="h-11"
+                    placeholder="Mãe, Pai, Aluno..."
+                    value={phone.label}
+                    onChange={(e) => updatePhone(index, "label", e.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-11 shrink-0"
+                    onClick={() => removePhone(index)}
+                    disabled={form.phones.length === 1}
+                    aria-label="Remover telefone"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>CPF</Label>
+            <Input className="h-11" value={form.cpf} onChange={set("cpf")} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <label className="flex cursor-pointer items-center gap-2 rounded-md border p-3 hover:bg-accent">
