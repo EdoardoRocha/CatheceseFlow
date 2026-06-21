@@ -3,8 +3,12 @@ import { usePageTitle } from "@/hooks/use-page-title";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { api, formatStudentPhone, type Lecture, type Student } from "@/lib/api";
-import { normalizeStudents } from "@/lib/dashboard-aggregations";
+import { api, formatStudentPhone, type Lecture } from "@/lib/api";
+import { matchesStudentName, normalizeStudents } from "@/lib/dashboard-aggregations";
+import {
+  EditStudentDialog,
+  NewStudentDialog,
+} from "@/components/student-form-dialog";
 import { useAuth } from "@/lib/auth-context";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,14 +27,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { CalendarDays, Clock, MapPin, ChevronLeft, Users, Plus, Loader2, Phone, Check, Trash2 } from "lucide-react";
+import { CalendarDays, Clock, MapPin, ChevronLeft, Users, Plus, Loader2, Phone, Check } from "lucide-react";
 
 const SACRAMENT_BADGE_CLASS =
   "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200";
-
-const MAX_STUDENT_PHONES = 5;
-
-const EMPTY_PHONE_ROW = { number: "", label: "" };
 
 function todayIso() {
   const d = new Date();
@@ -292,15 +292,27 @@ function NewLectureDialog({ classId }: { classId: string }) {
 }
 
 function StudentsTab({ classId }: { classId: string }) {
+  const [search, setSearch] = useState("");
   const studentsQ = useQuery({
     queryKey: ["students", classId],
     queryFn: async () =>
       normalizeStudents((await api.get(`/students/${classId}`)).data),
   });
 
+  const filteredStudents = useMemo(
+    () => (studentsQ.data ?? []).filter((s) => matchesStudentName(s, search)),
+    [studentsQ.data, search],
+  );
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Input
+          className="h-11"
+          placeholder="Buscar aluno por nome..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
         <NewStudentDialog classId={classId} />
       </div>
       {studentsQ.isLoading && (
@@ -314,8 +326,17 @@ function StudentsTab({ classId }: { classId: string }) {
       {studentsQ.data && studentsQ.data.length === 0 && (
         <Card><CardContent className="py-6 text-sm text-muted-foreground">Nenhum aluno matriculado nesta turma.</CardContent></Card>
       )}
+      {studentsQ.data &&
+        studentsQ.data.length > 0 &&
+        filteredStudents.length === 0 && (
+          <Card>
+            <CardContent className="py-6 text-sm text-muted-foreground">
+              Nenhum aluno encontrado para &quot;{search.trim()}&quot;.
+            </CardContent>
+          </Card>
+        )}
       <ul className="space-y-2">
-        {studentsQ.data?.map((s) => (
+        {filteredStudents.map((s) => (
           <li key={s.id}>
             <Card>
               <CardContent className="flex items-center justify-between gap-3 p-3">
@@ -347,6 +368,11 @@ function StudentsTab({ classId }: { classId: string }) {
                       CPF {s.cpf}
                     </Badge>
                   )}
+                  <EditStudentDialog
+                    classId={classId}
+                    studentId={s.id}
+                    studentName={s.name}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -354,250 +380,6 @@ function StudentsTab({ classId }: { classId: string }) {
         ))}
       </ul>
     </div>
-  );
-}
-
-function NewStudentDialog({ classId }: { classId: string }) {
-  const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    birth_date: "",
-    father_name: "",
-    mother_name: "",
-    phones: [{ ...EMPTY_PHONE_ROW }],
-    cpf: "",
-    road: "",
-    house_number: "",
-    code: "",
-    city: "",
-    neighborhood: "",
-    hasBaptism: false,
-    hasFirstCommunion: false,
-  });
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((p) => ({ ...p, [k]: e.target.value }));
-  const updatePhone = (
-    index: number,
-    field: "number" | "label",
-    value: string,
-  ) =>
-    setForm((prev) => ({
-      ...prev,
-      phones: prev.phones.map((phone, i) =>
-        i === index ? { ...phone, [field]: value } : phone,
-      ),
-    }));
-  const addPhone = () =>
-    setForm((prev) =>
-      prev.phones.length >= MAX_STUDENT_PHONES
-        ? prev
-        : { ...prev, phones: [...prev.phones, { ...EMPTY_PHONE_ROW }] },
-    );
-  const removePhone = (index: number) =>
-    setForm((prev) => ({
-      ...prev,
-      phones:
-        prev.phones.length === 1
-          ? [{ ...EMPTY_PHONE_ROW }]
-          : prev.phones.filter((_, i) => i !== index),
-    }));
-  const reset = () =>
-    setForm({
-      name: "",
-      birth_date: "",
-      father_name: "",
-      mother_name: "",
-      phones: [{ ...EMPTY_PHONE_ROW }],
-      cpf: "",
-      road: "",
-      house_number: "",
-      code: "",
-      city: "",
-      neighborhood: "",
-      hasBaptism: false,
-      hasFirstCommunion: false,
-    });
-
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const { hasBaptism, hasFirstCommunion, house_number } = form;
-      const phones = form.phones
-        .map((entry) => ({
-          number: entry.number.trim(),
-          label: entry.label.trim() || null,
-        }))
-        .filter((entry) => entry.number);
-
-      return api.post("/students/create", {
-        name: form.name.trim(),
-        phones,
-        cpf: form.cpf.trim() || null,
-        birth_date: form.birth_date || null,
-        father_name: form.father_name.trim() || null,
-        mother_name: form.mother_name.trim() || null,
-        road: form.road.trim() || null,
-        house_number: house_number.trim() ? Number(house_number) : null,
-        code: form.code.trim() || null,
-        city: form.city.trim() || null,
-        neighborhood: form.neighborhood.trim() || null,
-        classId: Number(classId),
-        has_baptism: hasBaptism,
-        has_first_communion: hasFirstCommunion,
-      });
-    },
-    onSuccess: () => {
-      toast.success("Aluno adicionado!");
-      qc.invalidateQueries({ queryKey: ["students"] });
-      setOpen(false);
-      reset();
-    },
-    onError: (err) => toast.error(extractMessage(err) ?? "Não foi possível adicionar o aluno"),
-  });
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name.trim()) {
-      toast.error("Informe o nome do aluno.");
-      return;
-    }
-    mutation.mutate();
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-      <DialogTrigger asChild>
-        <Button size="sm"><Plus className="h-4 w-4" /> Adicionar aluno</Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Novo aluno</DialogTitle>
-          <DialogDescription>Dados pessoais e endereço.</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={submit} className="space-y-3">
-          <div className="space-y-2">
-            <Label>Nome *</Label>
-            <Input className="h-11" value={form.name} onChange={set("name")} required />
-          </div>
-          <div className="space-y-2">
-            <Label>Data de nascimento</Label>
-            <Input
-              type="date"
-              className="h-11"
-              value={form.birth_date}
-              onChange={set("birth_date")}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Nome do pai</Label>
-              <Input className="h-11" value={form.father_name} onChange={set("father_name")} />
-            </div>
-            <div className="space-y-2">
-              <Label>Nome da mãe</Label>
-              <Input className="h-11" value={form.mother_name} onChange={set("mother_name")} />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Telefones</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addPhone}
-                disabled={form.phones.length >= MAX_STUDENT_PHONES}
-              >
-                <Plus className="h-4 w-4" /> Adicionar telefone
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {form.phones.map((phone, index) => (
-                <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-2">
-                  <Input
-                    className="h-11"
-                    placeholder="Número"
-                    value={phone.number}
-                    onChange={(e) => updatePhone(index, "number", e.target.value)}
-                  />
-                  <Input
-                    className="h-11"
-                    placeholder="Mãe, Pai, Aluno..."
-                    value={phone.label}
-                    onChange={(e) => updatePhone(index, "label", e.target.value)}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-11 shrink-0"
-                    onClick={() => removePhone(index)}
-                    disabled={form.phones.length === 1}
-                    aria-label="Remover telefone"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>CPF</Label>
-            <Input className="h-11" value={form.cpf} onChange={set("cpf")} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex cursor-pointer items-center gap-2 rounded-md border p-3 hover:bg-accent">
-              <Checkbox
-                checked={form.hasBaptism}
-                onCheckedChange={(checked) =>
-                  setForm((p) => ({ ...p, hasBaptism: !!checked }))
-                }
-              />
-              <span className="text-sm">Tem Batismo</span>
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 rounded-md border p-3 hover:bg-accent">
-              <Checkbox
-                checked={form.hasFirstCommunion}
-                onCheckedChange={(checked) =>
-                  setForm((p) => ({ ...p, hasFirstCommunion: !!checked }))
-                }
-              />
-              <span className="text-sm">Tem Primeira Comunhão</span>
-            </label>
-          </div>
-          <div className="space-y-2">
-            <Label>Rua</Label>
-            <Input className="h-11" value={form.road} onChange={set("road")} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Número</Label>
-              <Input type="number" className="h-11" value={form.house_number} onChange={set("house_number")} />
-            </div>
-            <div className="space-y-2">
-              <Label>CEP</Label>
-              <Input className="h-11" value={form.code} onChange={set("code")} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Bairro</Label>
-              <Input className="h-11" value={form.neighborhood} onChange={set("neighborhood")} />
-            </div>
-            <div className="space-y-2">
-              <Label>Cidade</Label>
-              <Input className="h-11" value={form.city} onChange={set("city")} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Adicionar"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
 

@@ -71,6 +71,14 @@ export type StudentPhone = {
   label?: string | null;
 };
 
+export type StudentAddress = {
+  road?: string | null;
+  house_number?: number | null;
+  code?: string | null;
+  city?: string | null;
+  neighborhood?: string | null;
+};
+
 export type Student = {
   id: number;
   name: string;
@@ -84,6 +92,12 @@ export type Student = {
   AddressId: number;
   hasBaptism: boolean;
   hasFirstCommunion: boolean;
+  address?: StudentAddress;
+  road?: string | null;
+  house_number?: number | null;
+  code?: string | null;
+  city?: string | null;
+  neighborhood?: string | null;
 };
 
 export function formatStudentPhone(phone: StudentPhone): string {

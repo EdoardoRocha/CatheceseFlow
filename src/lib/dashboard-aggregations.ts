@@ -1,4 +1,4 @@
-import type { Lecture, Student, StudentPhone } from "@/lib/api";
+import type { Lecture, Student, StudentAddress, StudentPhone } from "@/lib/api";
 
 export type StudentRef = Student & { className?: string };
 
@@ -34,9 +34,50 @@ function normalizePhones(raw: Record<string, unknown>): StudentPhone[] {
   return [];
 }
 
+function normalizeAddress(raw: Record<string, unknown>): StudentAddress {
+  const nested = raw.Address ?? raw.address;
+  const source =
+    nested && typeof nested === "object"
+      ? (nested as Record<string, unknown>)
+      : raw;
+
+  const houseRaw = source.house_number ?? source.houseNumber;
+  return {
+    road: trimOptionalString(source.road),
+    house_number:
+      houseRaw == null || String(houseRaw).trim() === ""
+        ? null
+        : Number(houseRaw),
+    code: trimOptionalString(source.code),
+    city: trimOptionalString(source.city),
+    neighborhood: trimOptionalString(source.neighborhood),
+  };
+}
+
+function trimOptionalString(value: unknown): string | null {
+  if (value == null) return null;
+  const s = String(value).trim();
+  return s === "" ? null : s;
+}
+
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+export function matchesStudentName(student: Student, query: string): boolean {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return true;
+  return normalizeSearchText(student.name).includes(normalizedQuery);
+}
+
 export function normalizeStudent(raw: Record<string, unknown>): Student {
   const birthRaw = raw.birth_date ?? raw.birthDate;
   const phones = normalizePhones(raw);
+  const address = normalizeAddress(raw);
   return {
     id: Number(raw.id),
     name: String(raw.name ?? ""),
@@ -50,9 +91,15 @@ export function normalizeStudent(raw: Record<string, unknown>): Student {
     fatherName: String(raw.father_name ?? raw.fatherName ?? ""),
     motherName: String(raw.mother_name ?? raw.motherName ?? ""),
     ClassId: Number(raw.ClassId ?? raw.classId),
-    AddressId: Number(raw.AddressId ?? raw.addressId),
+    AddressId: Number(raw.AddressId ?? raw.addressId ?? 0),
     hasBaptism: !!(raw.hasBaptism ?? raw.has_baptism),
     hasFirstCommunion: !!(raw.hasFirstCommunion ?? raw.has_first_communion),
+    address,
+    road: address.road,
+    house_number: address.house_number,
+    code: address.code,
+    city: address.city,
+    neighborhood: address.neighborhood,
   };
 }
 
