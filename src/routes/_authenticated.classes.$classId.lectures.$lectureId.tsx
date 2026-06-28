@@ -4,11 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { api, type Lecture, type Student } from "@/lib/api";
-import { normalizeStudents } from "@/lib/dashboard-aggregations";
+import { matchesStudentName, normalizeStudents } from "@/lib/dashboard-aggregations";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -49,6 +50,7 @@ export function RollCallPage() {
   const [reasonDraft, setReasonDraft] = useState("");
   const [pendingId, setPendingId] = useState<number | null>(null);
   const [marks, setMarks] = useState<MarkMap>({});
+  const [search, setSearch] = useState("");
 
   const studentsQ = useQuery({
     queryKey: ["students", classId],
@@ -99,6 +101,10 @@ export function RollCallPage() {
     const absent = Object.values(marks).filter((m) => m.status === "absent").length;
     return { total, marked, present, absent };
   }, [marks, studentsQ.data]);
+  const filteredStudents = useMemo(
+    () => (studentsQ.data ?? []).filter((student) => matchesStudentName(student, search)),
+    [studentsQ.data, search],
+  );
 
   // Treat 409 (already exists) as success — the GET refetch will reconcile.
   const isConflict = (err: unknown) =>
@@ -256,89 +262,105 @@ export function RollCallPage() {
       )}
 
       {!hydrating && !hydrationError && (
-      <ul className="space-y-2">
-        {studentsQ.data?.map((s) => {
-          const mark = marks[s.id];
-          const isPending = pendingId === s.id;
-          return (
-            <li key={s.id}>
-              <Card>
-                <CardContent className="flex items-center justify-between gap-3 p-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{s.name}</p>
-                    {mark?.status === "absent" && mark.reason && (
-                      <p className="truncate text-xs text-muted-foreground">
-                        Motivo: {mark.reason}
-                      </p>
-                    )}
-                    {mark && (
-                      <Badge
-                        variant="secondary"
-                        className={
-                          mark.status === "present"
-                            ? "mt-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
-                            : "mt-1 bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200"
-                        }
-                      >
-                        {mark.status === "present" ? "Presente" : "Faltou"}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {mark && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-11 w-11"
-                        onClick={() => clearMark(s)}
-                        disabled={isPending}
-                        aria-label={`Desfazer marcação de ${s.name}`}
-                        title="Desfazer marcação"
-                      >
-                        <RotateCcw className="h-5 w-5" />
-                      </Button>
-                    )}
-                    <Button
-                      size="icon"
-                      variant={mark?.status === "present" ? "default" : "outline"}
-                      className={
-                        "h-11 w-11 " +
-                        (mark?.status === "present"
-                          ? "bg-emerald-600 hover:bg-emerald-700"
-                          : "")
-                      }
-                      onClick={() => markPresent(s)}
-                      disabled={isPending}
-                      aria-label={`Marcar ${s.name} como presente`}
-                    >
-                      {isPending ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                      ) : (
-                        <Check className="h-5 w-5" />
-                      )}
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant={mark?.status === "absent" ? "default" : "outline"}
-                      className={
-                        "h-11 w-11 " +
-                        (mark?.status === "absent"
-                          ? "bg-rose-600 hover:bg-rose-700"
-                          : "")
-                      }
-                      onClick={() => openAbsence(s)}
-                      disabled={isPending}
-                      aria-label={`Registrar falta de ${s.name}`}
-                    >
-                      <X className="h-5 w-5" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </li>
-          );
-        })}
-      </ul>
+        <div className="space-y-3">
+          <Input
+            className="h-11"
+            placeholder="Buscar aluno por nome..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {studentsQ.data && studentsQ.data.length > 0 && filteredStudents.length === 0 ? (
+            <Card>
+              <CardContent className="py-6 text-sm text-muted-foreground">
+                Nenhum aluno encontrado para "{search}".
+              </CardContent>
+            </Card>
+          ) : (
+            <ul className="space-y-2">
+              {filteredStudents.map((s) => {
+                const mark = marks[s.id];
+                const isPending = pendingId === s.id;
+                return (
+                  <li key={s.id}>
+                    <Card>
+                      <CardContent className="flex items-center justify-between gap-3 p-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">{s.name}</p>
+                          {mark?.status === "absent" && mark.reason && (
+                            <p className="truncate text-xs text-muted-foreground">
+                              Motivo: {mark.reason}
+                            </p>
+                          )}
+                          {mark && (
+                            <Badge
+                              variant="secondary"
+                              className={
+                                mark.status === "present"
+                                  ? "mt-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
+                                  : "mt-1 bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200"
+                              }
+                            >
+                              {mark.status === "present" ? "Presente" : "Faltou"}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {mark && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-11 w-11"
+                              onClick={() => clearMark(s)}
+                              disabled={isPending}
+                              aria-label={`Desfazer marcação de ${s.name}`}
+                              title="Desfazer marcação"
+                            >
+                              <RotateCcw className="h-5 w-5" />
+                            </Button>
+                          )}
+                          <Button
+                            size="icon"
+                            variant={mark?.status === "present" ? "default" : "outline"}
+                            className={
+                              "h-11 w-11 " +
+                              (mark?.status === "present"
+                                ? "bg-emerald-600 hover:bg-emerald-700"
+                                : "")
+                            }
+                            onClick={() => markPresent(s)}
+                            disabled={isPending}
+                            aria-label={`Marcar ${s.name} como presente`}
+                          >
+                            {isPending ? (
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                            ) : (
+                              <Check className="h-5 w-5" />
+                            )}
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant={mark?.status === "absent" ? "default" : "outline"}
+                            className={
+                              "h-11 w-11 " +
+                              (mark?.status === "absent"
+                                ? "bg-rose-600 hover:bg-rose-700"
+                                : "")
+                            }
+                            onClick={() => openAbsence(s)}
+                            disabled={isPending}
+                            aria-label={`Registrar falta de ${s.name}`}
+                          >
+                            <X className="h-5 w-5" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       )}
 
       <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 backdrop-blur">
