@@ -71,6 +71,7 @@ function formatDateBR(d: Date) {
 export function PainelPage() {
   usePageTitle("Painel — CatheceseFlow");
   const today = new Date();
+  const [periodMode, setPeriodMode] = useState<"month" | "general">("month");
   const [monthValue, setMonthValue] = useState(monthKey(today));
   const [classFilter, setClassFilter] = useState<string>("all");
   const { year, month } = parseMonth(monthValue);
@@ -116,31 +117,32 @@ export function PainelPage() {
     return list;
   }, [classes, studentsQueries]);
 
-  // Filtered lectures of selected month
-  const monthLectures: Array<Lecture & { className: string }> = useMemo(() => {
+  // Lectures filtered by selected period
+  const selectedLectures: Array<Lecture & { className: string }> = useMemo(() => {
     const out: Array<Lecture & { className: string }> = [];
     classes.forEach((c, i) => {
       const ls = lecturesQueries[i]?.data ?? [];
       for (const l of ls) {
         const d = lectureDate(l);
-        if (d && inMonth(d, year, month)) {
+        if (!d) continue;
+        if (periodMode === "general" || inMonth(d, year, month)) {
           out.push({ ...l, className: `${c.type} · ${c.day}` });
         }
       }
     });
     return out;
-  }, [classes, lecturesQueries, year, month]);
+  }, [classes, lecturesQueries, periodMode, year, month]);
 
   // Attendance + absence per filtered lecture
   const attendQueries = useQueries({
-    queries: monthLectures.map((l) => ({
+    queries: selectedLectures.map((l) => ({
       queryKey: ["attendances", "lecture", String(l.id)],
       queryFn: async () =>
         (await api.get<AttendanceRow[]>(`/attendances/lecture/${l.id}`)).data,
     })),
   });
   const absenceQueries = useQueries({
-    queries: monthLectures.map((l) => ({
+    queries: selectedLectures.map((l) => ({
       queryKey: ["absences", "lecture", String(l.id)],
       queryFn: async () =>
         (await api.get<AttendanceRow[]>(`/absences/lecture/${l.id}`)).data,
@@ -261,6 +263,21 @@ export function PainelPage() {
     totalPresent + totalAbsent === 0
       ? null
       : Math.round((totalPresent / (totalPresent + totalAbsent)) * 100);
+  const periodDescription =
+    periodMode === "month"
+      ? "Visão geral da paróquia para o mês selecionado."
+      : "Visão geral acumulada da paróquia.";
+  const lecturesKpiLabel =
+    periodMode === "month" ? "Encontros no mês" : "Encontros (geral)";
+  const topDescription = periodMode === "month" ? "Top 5 do mês" : "Top 5 geral";
+  const noPresentText =
+    periodMode === "month"
+      ? "Sem presenças registradas no mês."
+      : "Sem presenças registradas no geral.";
+  const noAbsentText =
+    periodMode === "month"
+      ? "Sem faltas registradas no mês."
+      : "Sem faltas registradas no geral.";
 
   const loadingBase = classesQ.isLoading;
   const loadingDeep =
@@ -274,11 +291,23 @@ export function PainelPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Painel</h1>
-          <p className="text-sm text-muted-foreground">
-            Visão geral da paróquia para o mês selecionado.
-          </p>
+          <p className="text-sm text-muted-foreground">{periodDescription}</p>
         </div>
         <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <Label htmlFor="period-mode" className="text-xs">
+              Período
+            </Label>
+            <Select value={periodMode} onValueChange={(value) => setPeriodMode(value as "month" | "general")}>
+              <SelectTrigger id="period-mode" className="h-10 w-44">
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="month">Mês</SelectItem>
+                <SelectItem value="general">Geral</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-1">
             <Label htmlFor="class-filter" className="text-xs">
               Turma
@@ -297,18 +326,20 @@ export function PainelPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="month" className="text-xs">
-              Mês
-            </Label>
-            <Input
-              id="month"
-              type="month"
-              className="h-10 w-40"
-              value={monthValue}
-              onChange={(e) => setMonthValue(e.target.value || monthKey(new Date()))}
-            />
-          </div>
+          {periodMode === "month" && (
+            <div className="space-y-1">
+              <Label htmlFor="month" className="text-xs">
+                Mês
+              </Label>
+              <Input
+                id="month"
+                type="month"
+                className="h-10 w-40"
+                value={monthValue}
+                onChange={(e) => setMonthValue(e.target.value || monthKey(new Date()))}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -331,8 +362,8 @@ export function PainelPage() {
             icon={<Users className="h-4 w-4" />}
           />
           <KpiCard
-            label="Encontros no mês"
-            value={monthLectures.length}
+            label={lecturesKpiLabel}
+            value={selectedLectures.length}
             icon={<CalendarDays className="h-4 w-4" />}
           />
           <KpiCard
@@ -347,13 +378,13 @@ export function PainelPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Mais presentes</CardTitle>
-            <CardDescription>Top 5 do mês</CardDescription>
+            <CardDescription>{topDescription}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {loadingDeep && monthLectures.length > 0 && tops.length === 0 ? (
+            {loadingDeep && selectedLectures.length > 0 && tops.length === 0 ? (
               <ListSkeleton />
             ) : tops.length === 0 ? (
-              <EmptyText>Sem presenças registradas no mês.</EmptyText>
+              <EmptyText>{noPresentText}</EmptyText>
             ) : (
               tops.map((s) => (
                 <RankRow
@@ -374,13 +405,13 @@ export function PainelPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Mais faltosos</CardTitle>
-            <CardDescription>Top 5 do mês</CardDescription>
+            <CardDescription>{topDescription}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {loadingDeep && monthLectures.length > 0 && flops.length === 0 ? (
+            {loadingDeep && selectedLectures.length > 0 && flops.length === 0 ? (
               <ListSkeleton />
             ) : flops.length === 0 ? (
-              <EmptyText>Sem faltas registradas no mês.</EmptyText>
+              <EmptyText>{noAbsentText}</EmptyText>
             ) : (
               flops.map((s) => (
                 <RankRow
