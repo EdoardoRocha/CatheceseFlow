@@ -90,6 +90,7 @@ export function normalizeStudent(raw: Record<string, unknown>): Student {
         : String(birthRaw).split("T")[0],
     fatherName: String(raw.father_name ?? raw.fatherName ?? ""),
     motherName: String(raw.mother_name ?? raw.motherName ?? ""),
+    description: String(raw.description ?? ""),
     ClassId: Number(raw.ClassId ?? raw.classId),
     AddressId: Number(raw.AddressId ?? raw.addressId ?? 0),
     hasBaptism: !!(raw.hasBaptism ?? raw.has_baptism),

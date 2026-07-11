@@ -6,6 +6,7 @@ import { normalizeStudent } from "@/lib/dashboard-aggregations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -26,6 +27,7 @@ type StudentFormState = {
   birth_date: string;
   father_name: string;
   mother_name: string;
+  description: string;
   phones: Array<{ number: string; label: string }>;
   cpf: string;
   road: string;
@@ -43,6 +45,7 @@ function emptyForm(): StudentFormState {
     birth_date: "",
     father_name: "",
     mother_name: "",
+    description: "",
     phones: [{ ...EMPTY_PHONE_ROW }],
     cpf: "",
     road: "",
@@ -61,6 +64,7 @@ function studentToForm(student: Student): StudentFormState {
     birth_date: student.birthDate ?? "",
     father_name: student.fatherName ?? "",
     mother_name: student.motherName ?? "",
+    description: student.description ?? "",
     phones:
       student.phones.length > 0
         ? student.phones.map((p) => ({
@@ -104,6 +108,7 @@ function buildPayload(form: StudentFormState, classId: string) {
     birth_date: form.birth_date || null,
     father_name: form.father_name.trim() || null,
     mother_name: form.mother_name.trim() || null,
+    description: form.description.trim() || null,
     road: form.road.trim() || null,
     house_number: form.house_number.trim() ? Number(form.house_number) : null,
     code: form.code.trim() || null,
@@ -118,7 +123,11 @@ function buildPayload(form: StudentFormState, classId: string) {
 type StudentFormFieldsProps = {
   form: StudentFormState;
   setForm: React.Dispatch<React.SetStateAction<StudentFormState>>;
-  set: (k: keyof StudentFormState) => (e: React.ChangeEvent<HTMLInputElement>) => void;
+  set: (
+    k: keyof StudentFormState,
+  ) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void;
   updatePhone: (index: number, field: "number" | "label", value: string) => void;
   addPhone: () => void;
   removePhone: (index: number) => void;
@@ -137,6 +146,15 @@ function StudentFormFields({
       <div className="space-y-2">
         <Label>Nome *</Label>
         <Input className="h-11" value={form.name} onChange={set("name")} required />
+      </div>
+      <div className="space-y-2">
+        <Label>Descrição</Label>
+        <Textarea
+          value={form.description}
+          onChange={set("description")}
+          placeholder="Observações importantes sobre o aluno..."
+          rows={3}
+        />
       </div>
       <div className="space-y-2">
         <Label>Data de nascimento</Label>
@@ -255,8 +273,10 @@ function StudentFormFields({
 function useStudentFormState(initial?: StudentFormState) {
   const [form, setForm] = useState(initial ?? emptyForm());
 
-  const set = (k: keyof StudentFormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((p) => ({ ...p, [k]: e.target.value }));
+  const set =
+    (k: keyof StudentFormState) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setForm((p) => ({ ...p, [k]: e.target.value }));
 
   const updatePhone = (
     index: number,

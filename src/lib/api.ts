@@ -88,6 +88,7 @@ export type Student = {
   birthDate?: string | null;
   fatherName?: string | null;
   motherName?: string | null;
+  description?: string | null;
   ClassId: number;
   AddressId: number;
   hasBaptism: boolean;

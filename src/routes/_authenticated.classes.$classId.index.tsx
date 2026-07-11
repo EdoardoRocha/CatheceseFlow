@@ -342,6 +342,11 @@ function StudentsTab({ classId }: { classId: string }) {
               <CardContent className="flex items-center justify-between gap-3 p-3">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{s.name}</p>
+                  {s.description && (
+                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                      {s.description}
+                    </p>
+                  )}
                   {s.phones.length > 0 &&
                     s.phones.map((p, index) => (
                       <p
