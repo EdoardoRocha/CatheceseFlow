@@ -93,6 +93,8 @@ export type Student = {
   AddressId: number;
   hasBaptism: boolean;
   hasFirstCommunion: boolean;
+  userId: number | null;
+  catequista?: { id: number; name: string; role: string } | null;
   address?: StudentAddress;
   road?: string | null;
   house_number?: number | null;

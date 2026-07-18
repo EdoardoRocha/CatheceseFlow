@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api, type Student } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { normalizeStudent } from "@/lib/dashboard-aggregations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,10 +18,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 
 const MAX_STUDENT_PHONES = 5;
 const EMPTY_PHONE_ROW = { number: "", label: "" };
+
+type ParishUser = { id: number; name: string; role: string };
 
 type StudentFormState = {
   name: string;
@@ -37,6 +47,7 @@ type StudentFormState = {
   neighborhood: string;
   hasBaptism: boolean;
   hasFirstCommunion: boolean;
+  userId: string;
 };
 
 function emptyForm(): StudentFormState {
@@ -55,6 +66,7 @@ function emptyForm(): StudentFormState {
     neighborhood: "",
     hasBaptism: false,
     hasFirstCommunion: false,
+    userId: "",
   };
 }
 
@@ -85,6 +97,7 @@ function studentToForm(student: Student): StudentFormState {
     neighborhood: student.neighborhood ?? student.address?.neighborhood ?? "",
     hasBaptism: student.hasBaptism,
     hasFirstCommunion: student.hasFirstCommunion,
+    userId: student.userId != null ? String(student.userId) : "",
   };
 }
 
@@ -117,7 +130,24 @@ function buildPayload(form: StudentFormState, classId: string) {
     has_baptism: form.hasBaptism,
     has_first_communion: form.hasFirstCommunion,
     classId: Number(classId),
+    userId: Number(form.userId),
   };
+}
+
+function useParishCatequistas(enabled: boolean) {
+  const { user } = useAuth();
+  return useQuery({
+    enabled: enabled && !!user?.ParishId,
+    queryKey: ["parish-catequistas", user?.ParishId],
+    queryFn: async () => {
+      const r = await api.get<ParishUser[]>(`/users/${user?.ParishId}`);
+      return r.data;
+    },
+    select: (list) =>
+      (list ?? []).filter(
+        (u) => u.role === "Catequista" || u.role === "Coordenador",
+      ),
+  });
 }
 
 type StudentFormFieldsProps = {
@@ -131,6 +161,9 @@ type StudentFormFieldsProps = {
   updatePhone: (index: number, field: "number" | "label", value: string) => void;
   addPhone: () => void;
   removePhone: (index: number) => void;
+  catequistas: ParishUser[];
+  catequistasLoading: boolean;
+  catequistasError: boolean;
 };
 
 function StudentFormFields({
@@ -140,12 +173,50 @@ function StudentFormFields({
   updatePhone,
   addPhone,
   removePhone,
+  catequistas,
+  catequistasLoading,
+  catequistasError,
 }: StudentFormFieldsProps) {
   return (
     <>
       <div className="space-y-2">
         <Label>Nome *</Label>
         <Input className="h-11" value={form.name} onChange={set("name")} required />
+      </div>
+      <div className="space-y-2">
+        <Label>Catequista responsável *</Label>
+        <Select
+          value={form.userId || undefined}
+          onValueChange={(v) => setForm((p) => ({ ...p, userId: v }))}
+          disabled={catequistasLoading || catequistasError}
+        >
+          <SelectTrigger className="h-11">
+            <SelectValue
+              placeholder={
+                catequistasLoading
+                  ? "Carregando..."
+                  : "Selecione o catequista"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {catequistas.map((u) => (
+              <SelectItem key={u.id} value={String(u.id)}>
+                {u.name} ({u.role})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {catequistasError && (
+          <p className="text-xs text-destructive">
+            Não foi possível carregar os catequistas.
+          </p>
+        )}
+        {!catequistasLoading && !catequistasError && catequistas.length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            Nenhum catequista encontrado nesta paróquia.
+          </p>
+        )}
       </div>
       <div className="space-y-2">
         <Label>Descrição</Label>
@@ -311,11 +382,18 @@ function useStudentFormState(initial?: StudentFormState) {
   return { form, setForm, set, updatePhone, addPhone, removePhone, reset };
 }
 
+function validateStudentForm(form: StudentFormState): string | null {
+  if (!form.name.trim()) return "Informe o nome do aluno.";
+  if (!form.userId) return "Selecione o catequista responsável.";
+  return null;
+}
+
 export function NewStudentDialog({ classId }: { classId: string }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const { form, setForm, set, updatePhone, addPhone, removePhone, reset } =
     useStudentFormState();
+  const catequistasQ = useParishCatequistas(open);
 
   const mutation = useMutation({
     mutationFn: async () => api.post("/students/create", buildPayload(form, classId)),
@@ -331,8 +409,9 @@ export function NewStudentDialog({ classId }: { classId: string }) {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) {
-      toast.error("Informe o nome do aluno.");
+    const error = validateStudentForm(form);
+    if (error) {
+      toast.error(error);
       return;
     }
     mutation.mutate();
@@ -364,6 +443,9 @@ export function NewStudentDialog({ classId }: { classId: string }) {
             updatePhone={updatePhone}
             addPhone={addPhone}
             removePhone={removePhone}
+            catequistas={catequistasQ.data ?? []}
+            catequistasLoading={catequistasQ.isLoading}
+            catequistasError={catequistasQ.isError}
           />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
@@ -396,6 +478,7 @@ export function EditStudentDialog({
   const [open, setOpen] = useState(false);
   const { form, setForm, set, updatePhone, addPhone, removePhone, reset } =
     useStudentFormState();
+  const catequistasQ = useParishCatequistas(open);
 
   const studentQ = useQuery({
     enabled: open,
@@ -432,8 +515,9 @@ export function EditStudentDialog({
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) {
-      toast.error("Informe o nome do aluno.");
+    const error = validateStudentForm(form);
+    if (error) {
+      toast.error(error);
       return;
     }
     mutation.mutate();
@@ -477,6 +561,9 @@ export function EditStudentDialog({
               updatePhone={updatePhone}
               addPhone={addPhone}
               removePhone={removePhone}
+              catequistas={catequistasQ.data ?? []}
+              catequistasLoading={catequistasQ.isLoading}
+              catequistasError={catequistasQ.isError}
             />
           )}
           <DialogFooter>

@@ -78,6 +78,24 @@ export function normalizeStudent(raw: Record<string, unknown>): Student {
   const birthRaw = raw.birth_date ?? raw.birthDate;
   const phones = normalizePhones(raw);
   const address = normalizeAddress(raw);
+  const catequistaRaw = raw.catequista as
+    | { id?: unknown; name?: unknown; role?: unknown }
+    | null
+    | undefined;
+  const userIdRaw = raw.userId ?? raw.UserId ?? catequistaRaw?.id;
+  const userId =
+    userIdRaw == null || userIdRaw === ""
+      ? null
+      : Number(userIdRaw);
+  const catequista =
+    catequistaRaw && catequistaRaw.id != null
+      ? {
+          id: Number(catequistaRaw.id),
+          name: String(catequistaRaw.name ?? ""),
+          role: String(catequistaRaw.role ?? ""),
+        }
+      : null;
+
   return {
     id: Number(raw.id),
     name: String(raw.name ?? ""),
@@ -95,6 +113,8 @@ export function normalizeStudent(raw: Record<string, unknown>): Student {
     AddressId: Number(raw.AddressId ?? raw.addressId ?? 0),
     hasBaptism: !!(raw.hasBaptism ?? raw.has_baptism),
     hasFirstCommunion: !!(raw.hasFirstCommunion ?? raw.has_first_communion),
+    userId: Number.isFinite(userId) ? userId : null,
+    catequista,
     address,
     road: address.road,
     house_number: address.house_number,

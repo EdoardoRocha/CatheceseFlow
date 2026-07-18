@@ -27,6 +27,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { CalendarDays, Clock, MapPin, ChevronLeft, Users, Plus, Loader2, Phone, Check } from "lucide-react";
 
 const SACRAMENT_BADGE_CLASS =
@@ -293,26 +300,74 @@ function NewLectureDialog({ classId }: { classId: string }) {
 
 function StudentsTab({ classId }: { classId: string }) {
   const [search, setSearch] = useState("");
+  const [catequistaFilter, setCatequistaFilter] = useState("all");
   const studentsQ = useQuery({
     queryKey: ["students", classId],
     queryFn: async () =>
       normalizeStudents((await api.get(`/students/${classId}`)).data),
   });
 
+  const catequistaOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const s of studentsQ.data ?? []) {
+      if (s.userId != null && s.catequista?.name) {
+        map.set(s.userId, s.catequista.name);
+      } else if (s.userId != null) {
+        map.set(s.userId, `Catequista #${s.userId}`);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  }, [studentsQ.data]);
+
   const filteredStudents = useMemo(
-    () => (studentsQ.data ?? []).filter((s) => matchesStudentName(s, search)),
-    [studentsQ.data, search],
+    () =>
+      (studentsQ.data ?? []).filter((s) => {
+        if (!matchesStudentName(s, search)) return false;
+        if (catequistaFilter === "all") return true;
+        return String(s.userId) === catequistaFilter;
+      }),
+    [studentsQ.data, search, catequistaFilter],
   );
+
+  const emptyFilterMessage = (() => {
+    if (search.trim() && catequistaFilter !== "all") {
+      return `Nenhum aluno encontrado para "${search.trim()}" com o catequista selecionado.`;
+    }
+    if (search.trim()) {
+      return `Nenhum aluno encontrado para "${search.trim()}".`;
+    }
+    if (catequistaFilter !== "all") {
+      return "Nenhum aluno encontrado para o catequista selecionado.";
+    }
+    return null;
+  })();
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Input
-          className="h-11"
-          placeholder="Buscar aluno por nome..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row">
+          <Input
+            className="h-11"
+            placeholder="Buscar aluno por nome..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Select value={catequistaFilter} onValueChange={setCatequistaFilter}>
+            <SelectTrigger className="h-11 sm:w-[220px]">
+              <SelectValue placeholder="Catequista" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os catequistas</SelectItem>
+              {catequistaOptions.map((c) => (
+                <SelectItem key={c.id} value={String(c.id)}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <NewStudentDialog classId={classId} />
       </div>
       {studentsQ.isLoading && (
@@ -328,10 +383,11 @@ function StudentsTab({ classId }: { classId: string }) {
       )}
       {studentsQ.data &&
         studentsQ.data.length > 0 &&
-        filteredStudents.length === 0 && (
+        filteredStudents.length === 0 &&
+        emptyFilterMessage && (
           <Card>
             <CardContent className="py-6 text-sm text-muted-foreground">
-              Nenhum aluno encontrado para &quot;{search.trim()}&quot;.
+              {emptyFilterMessage}
             </CardContent>
           </Card>
         )}
@@ -342,6 +398,11 @@ function StudentsTab({ classId }: { classId: string }) {
               <CardContent className="flex items-center justify-between gap-3 p-3">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{s.name}</p>
+                  {s.catequista?.name && (
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      Catequista: {s.catequista.name}
+                    </p>
+                  )}
                   {s.description && (
                     <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                       {s.description}
