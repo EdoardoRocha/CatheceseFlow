@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { api, formatStudentPhone, type Lecture } from "@/lib/api";
 import { matchesStudentName, normalizeStudents } from "@/lib/dashboard-aggregations";
 import {
+  DeleteStudentDialog,
   EditStudentDialog,
   NewStudentDialog,
 } from "@/components/student-form-dialog";
@@ -34,7 +35,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CalendarDays, Clock, MapPin, ChevronLeft, Users, Plus, Loader2, Phone, Check } from "lucide-react";
+import {
+  CalendarDays,
+  Clock,
+  MapPin,
+  ChevronLeft,
+  Users,
+  Plus,
+  Loader2,
+  Phone,
+  Check,
+} from "lucide-react";
 
 const SACRAMENT_BADGE_CLASS =
   "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200";
@@ -113,31 +124,31 @@ export function ClassDetailPage() {
           </div>
 
           {isLoading && (
-        <div className="space-y-3">
-          {[1, 2].map((i) => (
-            <Skeleton key={i} className="h-32 w-full" />
-          ))}
-        </div>
-      )}
-      {isError && (
-        <Card>
-          <CardContent className="py-6 text-sm text-destructive">
-            Não foi possível carregar os encontros.
-          </CardContent>
-        </Card>
-      )}
+            <div className="space-y-3">
+              {[1, 2].map((i) => (
+                <Skeleton key={i} className="h-32 w-full" />
+              ))}
+            </div>
+          )}
+          {isError && (
+            <Card>
+              <CardContent className="py-6 text-sm text-destructive">
+                Não foi possível carregar os encontros.
+              </CardContent>
+            </Card>
+          )}
 
-      <Section title="Hoje" items={groups.todayList} classId={classId} highlight />
-      <Section title="Próximos" items={groups.upcoming} classId={classId} />
-      <Section title="Anteriores" items={groups.past} classId={classId} />
+          <Section title="Hoje" items={groups.todayList} classId={classId} highlight />
+          <Section title="Próximos" items={groups.upcoming} classId={classId} />
+          <Section title="Anteriores" items={groups.past} classId={classId} />
 
-      {data && data.length === 0 && (
-        <Card>
-          <CardContent className="py-6 text-sm text-muted-foreground">
-            Nenhum encontro agendado para esta turma.
-          </CardContent>
-        </Card>
-      )}
+          {data && data.length === 0 && (
+            <Card>
+              <CardContent className="py-6 text-sm text-muted-foreground">
+                Nenhum encontro agendado para esta turma.
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="students" className="mt-4">
@@ -167,10 +178,7 @@ function NewLectureDialog({ classId }: { classId: string }) {
       return r.data;
     },
     select: (list) =>
-      (list ?? []).filter(
-        (u) =>
-          u.role === "Catequista" || u.role === "Coordenador",
-      ),
+      (list ?? []).filter((u) => u.role === "Catequista" || u.role === "Coordenador"),
   });
 
   // Pre-select current user once dialog opens.
@@ -181,14 +189,19 @@ function NewLectureDialog({ classId }: { classId: string }) {
   }, [open, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reset = () => {
-    setTheme(""); setLocation(""); setDate(""); setHour("");
+    setTheme("");
+    setLocation("");
+    setDate("");
+    setHour("");
     setSelectedUserIds(user ? [user.id] : []);
   };
 
   const mutation = useMutation({
     mutationFn: async () => {
       return api.post("/lectures/create", {
-        location, theme, date,
+        location,
+        theme,
+        date,
         hour: hour.length === 5 ? `${hour}:00` : hour,
         classId: Number(classId),
         userIds: selectedUserIds.length > 0 ? selectedUserIds : user ? [user.id] : [],
@@ -217,9 +230,17 @@ function NewLectureDialog({ classId }: { classId: string }) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) reset();
+      }}
+    >
       <DialogTrigger asChild>
-        <Button size="sm"><Plus className="h-4 w-4" /> Novo encontro</Button>
+        <Button size="sm">
+          <Plus className="h-4 w-4" /> Novo encontro
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -229,20 +250,42 @@ function NewLectureDialog({ classId }: { classId: string }) {
         <form onSubmit={submit} className="space-y-3">
           <div className="space-y-2">
             <Label htmlFor="lec-theme">Tema</Label>
-            <Input id="lec-theme" className="h-11" value={theme} onChange={(e) => setTheme(e.target.value)} />
+            <Input
+              id="lec-theme"
+              className="h-11"
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="lec-loc">Local</Label>
-            <Input id="lec-loc" className="h-11" value={location} onChange={(e) => setLocation(e.target.value)} />
+            <Input
+              id="lec-loc"
+              className="h-11"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="lec-date">Data</Label>
-              <Input id="lec-date" type="date" className="h-11" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Input
+                id="lec-date"
+                type="date"
+                className="h-11"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="lec-hour">Hora</Label>
-              <Input id="lec-hour" type="time" className="h-11" value={hour} onChange={(e) => setHour(e.target.value)} />
+              <Input
+                id="lec-hour"
+                type="time"
+                className="h-11"
+                value={hour}
+                onChange={(e) => setHour(e.target.value)}
+              />
             </div>
           </div>
           <div className="space-y-2">
@@ -280,14 +323,18 @@ function NewLectureDialog({ classId }: { classId: string }) {
                       }}
                     />
                     <span className="flex-1 text-sm">{u.name}</span>
-                    <Badge variant="outline" className="text-[10px]">{u.role}</Badge>
+                    <Badge variant="outline" className="text-[10px]">
+                      {u.role}
+                    </Badge>
                   </label>
                 );
               })}
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Cancelar
+            </Button>
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Criar encontro"}
             </Button>
@@ -303,8 +350,7 @@ function StudentsTab({ classId }: { classId: string }) {
   const [catequistaFilter, setCatequistaFilter] = useState("all");
   const studentsQ = useQuery({
     queryKey: ["students", classId],
-    queryFn: async () =>
-      normalizeStudents((await api.get(`/students/${classId}`)).data),
+    queryFn: async () => normalizeStudents((await api.get(`/students/${classId}`)).data),
   });
 
   const catequistaOptions = useMemo(() => {
@@ -372,14 +418,24 @@ function StudentsTab({ classId }: { classId: string }) {
       </div>
       {studentsQ.isLoading && (
         <div className="space-y-2">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-14 w-full" />
+          ))}
         </div>
       )}
       {studentsQ.isError && (
-        <Card><CardContent className="py-6 text-sm text-destructive">Não foi possível carregar os alunos.</CardContent></Card>
+        <Card>
+          <CardContent className="py-6 text-sm text-destructive">
+            Não foi possível carregar os alunos.
+          </CardContent>
+        </Card>
       )}
       {studentsQ.data && studentsQ.data.length === 0 && (
-        <Card><CardContent className="py-6 text-sm text-muted-foreground">Nenhum aluno matriculado nesta turma.</CardContent></Card>
+        <Card>
+          <CardContent className="py-6 text-sm text-muted-foreground">
+            Nenhum aluno matriculado nesta turma.
+          </CardContent>
+        </Card>
       )}
       {studentsQ.data &&
         studentsQ.data.length > 0 &&
@@ -434,11 +490,8 @@ function StudentsTab({ classId }: { classId: string }) {
                       CPF {s.cpf}
                     </Badge>
                   )}
-                  <EditStudentDialog
-                    classId={classId}
-                    studentId={s.id}
-                    studentName={s.name}
-                  />
+                  <EditStudentDialog classId={classId} studentId={s.id} studentName={s.name} />
+                  <DeleteStudentDialog studentId={s.id} studentName={s.name} />
                 </div>
               </CardContent>
             </Card>
@@ -463,9 +516,7 @@ function Section({
   if (items.length === 0) return null;
   return (
     <section className="space-y-2">
-      <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-        {title}
-      </h2>
+      <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">{title}</h2>
       <div className="space-y-3">
         {items.map((l) => (
           <Card key={l.id} className={highlight ? "border-primary" : undefined}>
@@ -495,9 +546,7 @@ function Section({
                 </div>
               )}
               <Button asChild className="h-11 w-full">
-                <Link to={`/classes/${classId}/lectures/${l.id}`}>
-                  Fazer chamada
-                </Link>
+                <Link to={`/classes/${classId}/lectures/${l.id}`}>Fazer chamada</Link>
               </Button>
             </CardContent>
           </Card>

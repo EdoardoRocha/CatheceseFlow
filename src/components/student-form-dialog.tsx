@@ -19,6 +19,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -102,8 +112,7 @@ function studentToForm(student: Student): StudentFormState {
 }
 
 function extractMessage(err: unknown): string | undefined {
-  return (err as { response?: { data?: { message?: string } } })?.response?.data
-    ?.message;
+  return (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
 }
 
 function buildPayload(form: StudentFormState, classId: string) {
@@ -115,7 +124,7 @@ function buildPayload(form: StudentFormState, classId: string) {
     .filter((entry) => entry.number);
 
   return {
-    name: form.name.trim(),
+    name: form.name.trim().replace(/\s+/g, " "),
     phones,
     cpf: form.cpf.trim() || null,
     birth_date: form.birth_date || null,
@@ -144,9 +153,7 @@ function useParishCatequistas(enabled: boolean) {
       return r.data;
     },
     select: (list) =>
-      (list ?? []).filter(
-        (u) => u.role === "Catequista" || u.role === "Coordenador",
-      ),
+      (list ?? []).filter((u) => u.role === "Catequista" || u.role === "Coordenador"),
   });
 }
 
@@ -155,9 +162,7 @@ type StudentFormFieldsProps = {
   setForm: React.Dispatch<React.SetStateAction<StudentFormState>>;
   set: (
     k: keyof StudentFormState,
-  ) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => void;
+  ) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   updatePhone: (index: number, field: "number" | "label", value: string) => void;
   addPhone: () => void;
   removePhone: (index: number) => void;
@@ -192,11 +197,7 @@ function StudentFormFields({
         >
           <SelectTrigger className="h-11">
             <SelectValue
-              placeholder={
-                catequistasLoading
-                  ? "Carregando..."
-                  : "Selecione o catequista"
-              }
+              placeholder={catequistasLoading ? "Carregando..." : "Selecione o catequista"}
             />
           </SelectTrigger>
           <SelectContent>
@@ -208,9 +209,7 @@ function StudentFormFields({
           </SelectContent>
         </Select>
         {catequistasError && (
-          <p className="text-xs text-destructive">
-            Não foi possível carregar os catequistas.
-          </p>
+          <p className="text-xs text-destructive">Não foi possível carregar os catequistas.</p>
         )}
         {!catequistasLoading && !catequistasError && catequistas.length === 0 && (
           <p className="text-xs text-muted-foreground">
@@ -229,12 +228,7 @@ function StudentFormFields({
       </div>
       <div className="space-y-2">
         <Label>Data de nascimento</Label>
-        <Input
-          type="date"
-          className="h-11"
-          value={form.birth_date}
-          onChange={set("birth_date")}
-        />
+        <Input type="date" className="h-11" value={form.birth_date} onChange={set("birth_date")} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
@@ -297,18 +291,14 @@ function StudentFormFields({
         <label className="flex cursor-pointer items-center gap-2 rounded-md border p-3 hover:bg-accent">
           <Checkbox
             checked={form.hasBaptism}
-            onCheckedChange={(checked) =>
-              setForm((p) => ({ ...p, hasBaptism: !!checked }))
-            }
+            onCheckedChange={(checked) => setForm((p) => ({ ...p, hasBaptism: !!checked }))}
           />
           <span className="text-sm">Tem Batismo</span>
         </label>
         <label className="flex cursor-pointer items-center gap-2 rounded-md border p-3 hover:bg-accent">
           <Checkbox
             checked={form.hasFirstCommunion}
-            onCheckedChange={(checked) =>
-              setForm((p) => ({ ...p, hasFirstCommunion: !!checked }))
-            }
+            onCheckedChange={(checked) => setForm((p) => ({ ...p, hasFirstCommunion: !!checked }))}
           />
           <span className="text-sm">Tem Primeira Comunhão</span>
         </label>
@@ -320,7 +310,12 @@ function StudentFormFields({
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
           <Label>Número</Label>
-          <Input type="number" className="h-11" value={form.house_number} onChange={set("house_number")} />
+          <Input
+            type="number"
+            className="h-11"
+            value={form.house_number}
+            onChange={set("house_number")}
+          />
         </div>
         <div className="space-y-2">
           <Label>CEP</Label>
@@ -345,20 +340,13 @@ function useStudentFormState(initial?: StudentFormState) {
   const [form, setForm] = useState(initial ?? emptyForm());
 
   const set =
-    (k: keyof StudentFormState) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    (k: keyof StudentFormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm((p) => ({ ...p, [k]: e.target.value }));
 
-  const updatePhone = (
-    index: number,
-    field: "number" | "label",
-    value: string,
-  ) =>
+  const updatePhone = (index: number, field: "number" | "label", value: string) =>
     setForm((prev) => ({
       ...prev,
-      phones: prev.phones.map((phone, i) =>
-        i === index ? { ...phone, [field]: value } : phone,
-      ),
+      phones: prev.phones.map((phone, i) => (i === index ? { ...phone, [field]: value } : phone)),
     }));
 
   const addPhone = () =>
@@ -382,17 +370,55 @@ function useStudentFormState(initial?: StudentFormState) {
   return { form, setForm, set, updatePhone, addPhone, removePhone, reset };
 }
 
-function validateStudentForm(form: StudentFormState): string | null {
-  if (!form.name.trim()) return "Informe o nome do aluno.";
+function normalizeStudentNameForComparison(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function normalizeCpfForComparison(cpf: string | null | undefined): string {
+  if (!cpf) return "";
+  const raw = cpf.trim();
+  if (!raw) return "";
+  const digits = raw.replace(/\D/g, "");
+  return digits.length > 0 ? digits : raw.toLowerCase();
+}
+
+function validateStudentForm(
+  form: StudentFormState,
+  existingStudents: Student[] = [],
+  excludeStudentId?: number,
+): string | null {
+  const normalizedName = normalizeStudentNameForComparison(form.name);
+  if (!normalizedName) return "Informe o nome do aluno.";
   if (!form.userId) return "Selecione o catequista responsável.";
+
+  const normalizedCpf = normalizeCpfForComparison(form.cpf);
+
+  for (const existing of existingStudents) {
+    if (excludeStudentId != null && existing.id === excludeStudentId) {
+      continue;
+    }
+
+    if (normalizeStudentNameForComparison(existing.name) === normalizedName) {
+      return "Já existe um estudante cadastrado com este nome nesta turma!";
+    }
+
+    if (normalizedCpf && normalizeCpfForComparison(existing.cpf) === normalizedCpf) {
+      return "Já existe um estudante cadastrado com este CPF nesta turma!";
+    }
+  }
+
   return null;
 }
 
 export function NewStudentDialog({ classId }: { classId: string }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const { form, setForm, set, updatePhone, addPhone, removePhone, reset } =
-    useStudentFormState();
+  const { form, setForm, set, updatePhone, addPhone, removePhone, reset } = useStudentFormState();
   const catequistasQ = useParishCatequistas(open);
 
   const mutation = useMutation({
@@ -403,13 +429,13 @@ export function NewStudentDialog({ classId }: { classId: string }) {
       setOpen(false);
       reset();
     },
-    onError: (err) =>
-      toast.error(extractMessage(err) ?? "Não foi possível adicionar o aluno"),
+    onError: (err) => toast.error(extractMessage(err) ?? "Não foi possível adicionar o aluno"),
   });
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const error = validateStudentForm(form);
+    const existingStudents = qc.getQueryData<Student[]>(["students", classId]) ?? [];
+    const error = validateStudentForm(form, existingStudents);
     if (error) {
       toast.error(error);
       return;
@@ -452,11 +478,7 @@ export function NewStudentDialog({ classId }: { classId: string }) {
               Cancelar
             </Button>
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Adicionar"
-              )}
+              {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Adicionar"}
             </Button>
           </DialogFooter>
         </form>
@@ -476,8 +498,7 @@ export function EditStudentDialog({
 }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const { form, setForm, set, updatePhone, addPhone, removePhone, reset } =
-    useStudentFormState();
+  const { form, setForm, set, updatePhone, addPhone, removePhone, reset } = useStudentFormState();
   const catequistasQ = useParishCatequistas(open);
 
   const studentQ = useQuery({
@@ -485,10 +506,7 @@ export function EditStudentDialog({
     queryKey: ["students", "detail", String(studentId)],
     queryFn: async () =>
       normalizeStudent(
-        (await api.get(`/students/student/${studentId}`)).data as Record<
-          string,
-          unknown
-        >,
+        (await api.get(`/students/student/${studentId}`)).data as Record<string, unknown>,
       ),
   });
 
@@ -509,13 +527,13 @@ export function EditStudentDialog({
       setOpen(false);
       reset();
     },
-    onError: (err) =>
-      toast.error(extractMessage(err) ?? "Não foi possível atualizar o aluno"),
+    onError: (err) => toast.error(extractMessage(err) ?? "Não foi possível atualizar o aluno"),
   });
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const error = validateStudentForm(form);
+    const existingStudents = qc.getQueryData<Student[]>(["students", classId]) ?? [];
+    const error = validateStudentForm(form, existingStudents, studentId);
     if (error) {
       toast.error(error);
       return;
@@ -544,9 +562,7 @@ export function EditStudentDialog({
           <DialogDescription>Atualize os dados de {studentName}.</DialogDescription>
         </DialogHeader>
         {studentQ.isError && (
-          <p className="text-sm text-destructive">
-            Não foi possível carregar os dados do aluno.
-          </p>
+          <p className="text-sm text-destructive">Não foi possível carregar os dados do aluno.</p>
         )}
         <form onSubmit={submit} className="space-y-3">
           {loading ? (
@@ -571,15 +587,70 @@ export function EditStudentDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={mutation.isPending || loading || studentQ.isError}>
-              {mutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Salvar"
-              )}
+              {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function DeleteStudentDialog({
+  studentId,
+  studentName,
+}: {
+  studentId: number;
+  studentName: string;
+}) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+
+  const mutation = useMutation({
+    mutationFn: async () => api.delete(`/students/student/${studentId}`),
+    onSuccess: () => {
+      toast.success("Aluno excluído com sucesso!");
+      qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["attendances"] });
+      qc.invalidateQueries({ queryKey: ["absences"] });
+      setOpen(false);
+    },
+    onError: (err) => toast.error(extractMessage(err) ?? "Não foi possível excluir o aluno"),
+  });
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+          aria-label={`Excluir ${studentName}`}
+        >
+          <Trash2 className="h-4 w-4" />
+          <span className="sr-only sm:not-sr-only">Excluir</span>
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Excluir aluno</AlertDialogTitle>
+          <AlertDialogDescription>
+            Tem certeza que deseja excluir <strong>{studentName}</strong>? Esta ação removerá também
+            o histórico de presenças e faltas deste aluno e não poderá ser desfeita.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={mutation.isPending}>Cancelar</AlertDialogCancel>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={mutation.isPending}
+            onClick={() => mutation.mutate()}
+          >
+            {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Excluir"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
