@@ -10,6 +10,7 @@ import {
   EditStudentDialog,
   NewStudentDialog,
 } from "@/components/student-form-dialog";
+import { LectureSummaryDialog } from "@/components/lecture-summary-dialog";
 import { useAuth } from "@/lib/auth-context";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -545,9 +546,12 @@ function Section({
                   ))}
                 </div>
               )}
-              <Button asChild className="h-11 w-full">
-                <Link to={`/classes/${classId}/lectures/${l.id}`}>Fazer chamada</Link>
-              </Button>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Button asChild className="h-11 w-full">
+                  <Link to={`/classes/${classId}/lectures/${l.id}`}>Fazer chamada</Link>
+                </Button>
+                <LectureSummaryDialog lecture={l} classId={classId} />
+              </div>
             </CardContent>
           </Card>
         ))}
