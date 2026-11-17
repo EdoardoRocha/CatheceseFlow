@@ -6,6 +6,14 @@ const API_BASE_URL =
     ? "http://localhost:3000/api/v1"
     : "https://cathecese-flow-api.vercel.app/api/v1");
 
+export const AI_API_BASE_URL =
+  (import.meta.env.VITE_AI_API_BASE_URL as string | undefined) ?? "http://localhost:8000/api/v1";
+
+export const aiApi = axios.create({
+  baseURL: AI_API_BASE_URL,
+  headers: { "Content-Type": "application/json" },
+});
+
 export const TOKEN_STORAGE_KEY = "catheceseflow.token";
 export const USER_STORAGE_KEY = "catheceseflow.user";
 export const AUTH_EXPIRED_EVENT = "catheceseflow:auth-expired";
