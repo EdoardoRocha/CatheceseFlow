@@ -7,7 +7,10 @@ const API_BASE_URL =
     : "https://cathecese-flow-api.vercel.app/api/v1");
 
 export const AI_API_BASE_URL =
-  (import.meta.env.VITE_AI_API_BASE_URL as string | undefined) ?? "http://localhost:8000/api/v1";
+  (import.meta.env.VITE_AI_API_BASE_URL as string | undefined) ??
+  (import.meta.env.DEV
+    ? "http://localhost:8000/api/v1"
+    : "https://cathecese-flow-ai.vercel.app/api/v1");
 
 export const aiApi = axios.create({
   baseURL: AI_API_BASE_URL,
