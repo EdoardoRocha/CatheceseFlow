@@ -9,6 +9,7 @@ import {
   USER_STORAGE_KEY,
   type AuthUser,
 } from "./api";
+import { clearMartaChatStorage } from "./marta-storage";
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(TOKEN_STORAGE_KEY);
       window.localStorage.removeItem(USER_STORAGE_KEY);
+      clearMartaChatStorage();
     }
     setToken(null);
     setUser(null);

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MartaChatWidget } from "@/components/marta-chat-widget";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
@@ -40,9 +41,7 @@ export function AuthenticatedLayout() {
             </nav>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden text-sm text-muted-foreground sm:inline">
-              {user?.name}
-            </span>
+            <span className="hidden text-sm text-muted-foreground sm:inline">{user?.name}</span>
             <Button variant="ghost" size="sm" onClick={handleLogout} aria-label="Sair">
               <LogOut className="h-4 w-4" />
               <span className="ml-1 hidden sm:inline">Sair</span>
@@ -53,6 +52,7 @@ export function AuthenticatedLayout() {
       <main className="mx-auto max-w-3xl px-4 py-6">
         <Outlet />
       </main>
+      <MartaChatWidget />
     </div>
   );
 }
