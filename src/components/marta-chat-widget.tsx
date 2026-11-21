@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 const TOOL_LABELS: Record<string, string> = {
   get_classes_overview: "Consultando turmas...",
   get_student_attendance: "Consultando alunos e frequência...",
+  get_students_age: "Consultando idades dos alunos...",
   search_lecture_summaries: "Buscando resumos de formações...",
   get_platform_faq: "Consultando guia da plataforma...",
 };
