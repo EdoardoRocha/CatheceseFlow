@@ -4,6 +4,7 @@ import { Bot, Loader2, RefreshCw, Send, Sparkles, Trash2, X } from "lucide-react
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MartaMarkdown } from "@/components/marta-markdown";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/lib/auth-context";
 import { sendMartaMessage, type MartaPageContextPayload } from "@/lib/marta-api";
@@ -255,15 +256,19 @@ export function MartaChatWidget() {
                   >
                     <div
                       className={cn(
-                        "max-w-[85%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm",
+                        "max-w-[85%] min-w-0 break-words rounded-lg px-3 py-2 text-sm",
                         msg.role === "user"
-                          ? "bg-primary text-primary-foreground"
+                          ? "whitespace-pre-wrap bg-primary text-primary-foreground"
                           : msg.error
-                            ? "border border-destructive/40 bg-destructive/10 text-destructive"
+                            ? "whitespace-pre-wrap border border-destructive/40 bg-destructive/10 text-destructive"
                             : "bg-muted text-foreground",
                       )}
                     >
-                      {msg.content || (isSending ? "..." : "")}
+                      {msg.role === "assistant" && !msg.error && msg.content ? (
+                        <MartaMarkdown content={msg.content} />
+                      ) : (
+                        msg.content || (isSending ? "..." : "")
+                      )}
                     </div>
                   </div>
                 ))}
