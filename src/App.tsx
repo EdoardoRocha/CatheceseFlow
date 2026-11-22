@@ -8,6 +8,7 @@ import { IndexPage } from "@/routes/index";
 import { LoginPage } from "@/routes/login";
 import { DashboardPage } from "@/routes/_authenticated.dashboard";
 import { PainelPage } from "@/routes/_authenticated.painel";
+import { KnowledgeBasePage } from "@/routes/_authenticated.conhecimento";
 import { ClassDetailPage } from "@/routes/_authenticated.classes.$classId.index";
 import { RollCallPage } from "@/routes/_authenticated.classes.$classId.lectures.$lectureId";
 
@@ -24,11 +25,9 @@ export default function App() {
             <Route element={<AuthenticatedLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/painel" element={<PainelPage />} />
+              <Route path="/conhecimento" element={<KnowledgeBasePage />} />
               <Route path="/classes/:classId" element={<ClassDetailPage />} />
-              <Route
-                path="/classes/:classId/lectures/:lectureId"
-                element={<RollCallPage />}
-              />
+              <Route path="/classes/:classId/lectures/:lectureId" element={<RollCallPage />} />
             </Route>
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

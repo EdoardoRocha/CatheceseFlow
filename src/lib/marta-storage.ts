@@ -1,10 +1,19 @@
 export type MartaRole = "user" | "assistant";
 
+export type MartaAttachment = {
+  type: "pdf";
+  id: string;
+  title: string;
+  filename: string;
+  download_path: string;
+};
+
 export type MartaStoredMessage = {
   id: string;
   role: MartaRole;
   content: string;
   toolsUsed?: string[];
+  attachments?: MartaAttachment[];
   createdAt: string;
   error?: boolean;
 };

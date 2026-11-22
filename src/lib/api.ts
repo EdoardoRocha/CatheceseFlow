@@ -17,6 +17,17 @@ export const aiApi = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+aiApi.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (token && !isTokenExpired(token)) {
+      config.headers = config.headers ?? {};
+      (config.headers as Record<string, string>).Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
 export const TOKEN_STORAGE_KEY = "catheceseflow.token";
 export const USER_STORAGE_KEY = "catheceseflow.user";
 export const AUTH_EXPIRED_EVENT = "catheceseflow:auth-expired";

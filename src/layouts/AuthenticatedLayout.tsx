@@ -38,6 +38,9 @@ export function AuthenticatedLayout() {
               <NavLink to="/dashboard" end className={navLinkClass}>
                 Turmas
               </NavLink>
+              <NavLink to="/conhecimento" end className={navLinkClass}>
+                Base IA
+              </NavLink>
             </nav>
           </div>
           <div className="flex items-center gap-3">

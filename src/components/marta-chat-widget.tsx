@@ -1,18 +1,30 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useLocation, useParams } from "react-router-dom";
-import { Bot, Loader2, RefreshCw, Send, Sparkles, Trash2, X } from "lucide-react";
+import {
+  Bot,
+  Download,
+  FileText,
+  Loader2,
+  RefreshCw,
+  Send,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MartaMarkdown } from "@/components/marta-markdown";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/lib/auth-context";
-import { sendMartaMessage, type MartaPageContextPayload } from "@/lib/marta-api";
+import { downloadMartaPdf, sendMartaMessage, type MartaPageContextPayload } from "@/lib/marta-api";
 import {
   clearMartaChatStorage,
   getMartaHistoryForApi,
   loadMartaMessages,
   saveMartaMessages,
+  type MartaAttachment,
   type MartaStoredMessage,
 } from "@/lib/marta-storage";
 import { cn } from "@/lib/utils";
@@ -22,6 +34,8 @@ const TOOL_LABELS: Record<string, string> = {
   get_student_attendance: "Consultando alunos e frequência...",
   get_students_age: "Consultando idades dos alunos...",
   search_lecture_summaries: "Buscando resumos de formações...",
+  search_formation_knowledge: "Pesquisando PDFs de formações anteriores...",
+  generate_formation_pdf: "Montando e gerando o PDF da formação...",
   get_platform_faq: "Consultando guia da plataforma...",
 };
 
@@ -54,6 +68,7 @@ export function MartaChatWidget() {
   const [isSending, setIsSending] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
+  const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -132,6 +147,16 @@ export function MartaChatWidget() {
         onTool: (toolName) => {
           setActiveTool(TOOL_LABELS[toolName] ?? `Executando ${toolName}...`);
         },
+        onAttachment: (attachment) => {
+          setMessages((prev) =>
+            prev.map((m) => {
+              if (m.id !== assistantId) return m;
+              const current = m.attachments ?? [];
+              if (current.some((item) => item.id === attachment.id)) return m;
+              return { ...m, attachments: [...current, attachment] };
+            }),
+          );
+        },
         onToken: (chunk) => {
           setActiveTool(null);
           setMessages((prev) =>
@@ -143,7 +168,14 @@ export function MartaChatWidget() {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantId
-            ? { ...m, content: result.reply, toolsUsed: result.toolsUsed, error: false }
+            ? {
+                ...m,
+                content: result.reply,
+                toolsUsed: result.toolsUsed,
+                attachments:
+                  result.attachments.length > 0 ? result.attachments : (m.attachments ?? []),
+                error: false,
+              }
             : m,
         ),
       );
@@ -166,6 +198,18 @@ export function MartaChatWidget() {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     void dispatchQuestion(input);
+  };
+
+  const handleDownloadPdf = async (attachment: MartaAttachment) => {
+    if (downloadingPdfId) return;
+    setDownloadingPdfId(attachment.id);
+    try {
+      await downloadMartaPdf(attachment);
+    } catch {
+      toast.error("Não foi possível baixar o PDF da formação.");
+    } finally {
+      setDownloadingPdfId(null);
+    }
   };
 
   const contextLabel = pageContext.class_id
@@ -271,6 +315,38 @@ export function MartaChatWidget() {
                         msg.content || (isSending ? "..." : "")
                       )}
                     </div>
+                    {msg.attachments && msg.attachments.length > 0 && (
+                      <div className="flex max-w-[85%] flex-col gap-1.5 pt-0.5">
+                        {msg.attachments.map((att) => (
+                          <div
+                            key={att.id}
+                            className="flex items-center justify-between gap-2 rounded-lg border bg-background px-2.5 py-2 text-xs shadow-xs"
+                          >
+                            <div className="flex min-w-0 items-center gap-2">
+                              <FileText className="h-4 w-4 shrink-0 text-primary" />
+                              <span className="truncate font-medium" title={att.title}>
+                                {att.title}
+                              </span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              className="h-7 shrink-0 px-2 text-xs"
+                              disabled={downloadingPdfId === att.id}
+                              onClick={() => void handleDownloadPdf(att)}
+                            >
+                              {downloadingPdfId === att.id ? (
+                                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Download className="mr-1 h-3.5 w-3.5" />
+                              )}
+                              Baixar PDF
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
 

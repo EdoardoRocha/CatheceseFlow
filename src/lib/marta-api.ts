@@ -1,5 +1,5 @@
 import { AI_API_BASE_URL, aiApi } from "@/lib/api";
-import type { MartaRole } from "@/lib/marta-storage";
+import type { MartaAttachment, MartaRole } from "@/lib/marta-storage";
 
 export type MartaPageContextPayload = {
   current_path: string;
@@ -16,18 +16,49 @@ export type SendMartaMessageInput = {
   context: MartaPageContextPayload;
   onToken: (chunk: string) => void;
   onTool?: (toolName: string) => void;
+  onAttachment?: (attachment: MartaAttachment) => void;
   signal?: AbortSignal;
 };
 
 export type SendMartaMessageResult = {
   reply: string;
   toolsUsed: string[];
+  attachments: MartaAttachment[];
 };
 
+function mergeAttachments(
+  current: MartaAttachment[],
+  incoming: MartaAttachment[],
+): MartaAttachment[] {
+  const map = new Map<string, MartaAttachment>();
+  for (const item of current) {
+    if (item?.id) map.set(item.id, item);
+  }
+  for (const item of incoming) {
+    if (item?.id) map.set(item.id, item);
+  }
+  return Array.from(map.values());
+}
+
+function isValidAttachment(value: unknown): value is MartaAttachment {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.id === "string" &&
+    typeof v.title === "string" &&
+    typeof v.filename === "string" &&
+    typeof v.download_path === "string"
+  );
+}
+
 async function sendJsonFallback(
-  input: Omit<SendMartaMessageInput, "onToken" | "onTool">,
+  input: Omit<SendMartaMessageInput, "onToken" | "onTool" | "onAttachment">,
 ): Promise<SendMartaMessageResult> {
-  const { data } = await aiApi.post<{ reply: string; tools_used?: string[] }>(
+  const { data } = await aiApi.post<{
+    reply: string;
+    tools_used?: string[];
+    attachments?: MartaAttachment[];
+  }>(
     "/marta/chat",
     {
       message: input.message,
@@ -41,6 +72,7 @@ async function sendJsonFallback(
   return {
     reply: data.reply,
     toolsUsed: data.tools_used ?? [],
+    attachments: Array.isArray(data.attachments) ? data.attachments.filter(isValidAttachment) : [],
   };
 }
 
@@ -74,6 +106,7 @@ export async function sendMartaMessage(
   let receivedAnyToken = false;
   let fullReply = "";
   let toolsUsed: string[] = [];
+  let attachments: MartaAttachment[] = [];
 
   try {
     const response = await fetch(`${AI_API_BASE_URL}/marta/chat`, {
@@ -98,9 +131,23 @@ export async function sendMartaMessage(
 
     const contentType = response.headers.get("content-type") ?? "";
     if (contentType.includes("application/json")) {
-      const json = (await response.json()) as { reply: string; tools_used?: string[] };
+      const json = (await response.json()) as {
+        reply: string;
+        tools_used?: string[];
+        attachments?: MartaAttachment[];
+      };
+      const parsedAttachments = Array.isArray(json.attachments)
+        ? json.attachments.filter(isValidAttachment)
+        : [];
+      for (const att of parsedAttachments) {
+        input.onAttachment?.(att);
+      }
       input.onToken(json.reply);
-      return { reply: json.reply, toolsUsed: json.tools_used ?? [] };
+      return {
+        reply: json.reply,
+        toolsUsed: json.tools_used ?? [],
+        attachments: parsedAttachments,
+      };
     }
 
     if (!response.body) {
@@ -125,12 +172,21 @@ export async function sendMartaMessage(
 
         if (parsed.event === "tool" && typeof parsed.data.tool === "string") {
           input.onTool?.(parsed.data.tool);
+        } else if (parsed.event === "attachment" && isValidAttachment(parsed.data)) {
+          attachments = mergeAttachments(attachments, [parsed.data]);
+          input.onAttachment?.(parsed.data);
         } else if (parsed.event === "token" && typeof parsed.data.content === "string") {
           receivedAnyToken = true;
           fullReply += parsed.data.content;
           input.onToken(parsed.data.content);
-        } else if (parsed.event === "done" && Array.isArray(parsed.data.tools_used)) {
-          toolsUsed = parsed.data.tools_used.map(String);
+        } else if (parsed.event === "done") {
+          if (Array.isArray(parsed.data.tools_used)) {
+            toolsUsed = parsed.data.tools_used.map(String);
+          }
+          if (Array.isArray(parsed.data.attachments)) {
+            const doneAttachments = parsed.data.attachments.filter(isValidAttachment);
+            attachments = mergeAttachments(attachments, doneAttachments);
+          }
         } else if (parsed.event === "error") {
           throw new Error(String(parsed.data.detail ?? "Erro ao processar resposta da martaAI."));
         }
@@ -141,14 +197,34 @@ export async function sendMartaMessage(
       throw new Error("Stream encerrado sem tokens");
     }
 
-    return { reply: fullReply, toolsUsed };
+    return { reply: fullReply, toolsUsed, attachments };
   } catch (err) {
     if (input.signal?.aborted) throw err;
     if (!receivedAnyToken) {
       const fallback = await sendJsonFallback(input);
+      for (const att of fallback.attachments) {
+        input.onAttachment?.(att);
+      }
       input.onToken(fallback.reply);
       return fallback;
     }
     throw err;
+  }
+}
+
+export async function downloadMartaPdf(attachment: MartaAttachment): Promise<void> {
+  const response = await aiApi.get<Blob>(attachment.download_path, {
+    responseType: "blob",
+  });
+  const url = window.URL.createObjectURL(response.data);
+  try {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = attachment.filename || `formacao-${attachment.id}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } finally {
+    window.URL.revokeObjectURL(url);
   }
 }
